@@ -1,0 +1,92 @@
+{
+  "agent_instructions": {
+    "active_skills": [
+      "rust.md"
+    ],
+    "docs_directory": "onpkg_docs/"
+  },
+  "architecture": {
+    "entrypoint": "src/main.rs"
+  },
+  "packages": {
+    "added_by_agent": [],
+    "core": [
+      "anyhow",
+      "async-trait",
+      "chrono",
+      "clap",
+      "dirs",
+      "ego-tree",
+      "futures",
+      "governor",
+      "lru",
+      "reqwest",
+      "rmcp",
+      "schemars",
+      "scraper",
+      "serde",
+      "serde_json",
+      "tantivy",
+      "thiserror",
+      "tokio",
+      "toml",
+      "tracing",
+      "tracing-subscriber",
+      "url"
+    ]
+  },
+  "project": {
+    "name": "searchxyz",
+    "package_manager": "cargo",
+    "runtime": "rust",
+    "stack": "rust-cli"
+  },
+  "scripts": {
+    "build": "cargo build",
+    "dev": "cargo run",
+    "test": "cargo test"
+  },
+  "sources": {
+    "directories": [
+      "docs",
+      "src",
+      "src/cache",
+      "src/config",
+      "src/crawler",
+      "src/error",
+      "src/extractor",
+      "src/index",
+      "src/pipeline",
+      "src/search",
+      "src/tools"
+    ],
+    "file_patterns": [
+      "*.md",
+      "*.rs",
+      "*.toml"
+    ],
+    "files": [
+      "Cargo.toml",
+      "README.md",
+      "docs/core.md",
+      "docs/idea.md",
+      "docs/implementation.md",
+      "docs/prd.md",
+      "docs/research.md",
+      "docs/spec.md",
+      "docs/todo.md",
+      "src/cache/mod.rs",
+      "src/config/mod.rs",
+      "src/crawler/mod.rs",
+      "src/error/mod.rs",
+      "src/extractor/mod.rs",
+      "src/index/mod.rs",
+      "src/main.rs",
+      "src/pipeline/mod.rs",
+      "src/search/brave.rs",
+      "src/search/duckduckgo.rs",
+      "src/search/mod.rs",
+      "src/tools/mod.rs"
+    ]
+  }
+}
