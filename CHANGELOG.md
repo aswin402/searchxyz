@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.0.8] - 2026-06-21
+
+### Added
+- **Local Vector Embeddings**: Integrated the `fastembed` crate to compute 384-dimension `BGESmallENV15` embeddings locally.
+- **Embedded Document Storage**: Added `f_embedding` as a stored `BYTES` field in the local Tantivy database schema to preserve document vectors.
+- **Hybrid Semantic Search**: Implemented `search_semantic` to perform cosine similarity ranking (dot-product) over all cached documents.
+- **Recall Semantic Toggle**: Updated `RecallRequest` and the `recall` tool interface to expose a `semantic` boolean toggle (defaulting to `true` to execute semantic vector search).
+- **Static OpenSSL Vendoring Resolver**: Configured Cargo `build-dependencies` with `openssl` and `openssl-sys` vendored flags to solve host environment dependency compilation failures.
+
 ## [0.0.7] - 2026-06-21
 
 ### Added

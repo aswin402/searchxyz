@@ -18,10 +18,13 @@
       "clap",
       "dirs",
       "ego-tree",
+      "fastembed",
       "futures",
       "governor",
       "lopdf",
       "lru",
+      "openssl",
+      "openssl-sys",
       "pdf-extract",
       "rand",
       "reqwest",
@@ -52,6 +55,7 @@
   },
   "sources": {
     "directories": [
+      ".fastembed_cache/models--Xenova--bge-small-en-v1.5/snapshots/ea104dacec62c0de699686887e3f920caeb4f3e3",
       "docs",
       "src",
       "src/cache",
@@ -65,11 +69,16 @@
       "src/tools"
     ],
     "file_patterns": [
+      "*.json",
       "*.md",
       "*.rs",
       "*.toml"
     ],
     "files": [
+      ".fastembed_cache/models--Xenova--bge-small-en-v1.5/snapshots/ea104dacec62c0de699686887e3f920caeb4f3e3/config.json",
+      ".fastembed_cache/models--Xenova--bge-small-en-v1.5/snapshots/ea104dacec62c0de699686887e3f920caeb4f3e3/special_tokens_map.json",
+      ".fastembed_cache/models--Xenova--bge-small-en-v1.5/snapshots/ea104dacec62c0de699686887e3f920caeb4f3e3/tokenizer.json",
+      ".fastembed_cache/models--Xenova--bge-small-en-v1.5/snapshots/ea104dacec62c0de699686887e3f920caeb4f3e3/tokenizer_config.json",
       "CHANGELOG.md",
       "Cargo.toml",
       "README.md",

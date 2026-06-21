@@ -6,7 +6,7 @@
 
 An extremely high-performance Model Context Protocol (MCP) search, crawl, and content-indexing server written in Rust.
 
-**Version:** 0.0.7
+**Version:** 0.0.8
 
 ---
 
@@ -16,7 +16,7 @@ An extremely high-performance Model Context Protocol (MCP) search, crawl, and co
 - **🔍 Multi-Backend Search Dispatcher**: Out-of-the-box support for DuckDuckGo Lite (completely free, keyless scraping), SearXNG (privacy-centric metasearch aggregator), and optional Brave Web Search API as fallback.
 - **📄 Content Extraction & Boilerplate Reduction**: Crawls target URLs using `reqwest` (with `rustls`), parses them via CSS selectors, strips out noisy elements (nav, footer, styling, ads, iframe), and outputs clean, token-efficient Markdown. Natively supports parsing and extracting text from PDF files (`application/pdf`) as well.
 - **⚡ Concurrent Crawls**: Crawls and extracts up to 5 top result pages concurrently using `tokio` asynchronous workers when executing `search_and_read`.
-- **💾 Local Recall Index**: Integrates a Tantivy full-text index database, acting as a search-recall memory layer for AI agents. Queries are returned in `<2ms` from the local database.
+- **💾 Local Recall Index & Hybrid Semantic Search**: Integrates a Tantivy full-text index database and local vector embedding generator using `fastembed` (BGESmallENV15, 384-dimension). Supports both hybrid semantic search (cosine similarity ranking) and classic keyword-only search, acting as a smart search-recall memory layer for AI agents.
 - **🛡️ Agent-Friendly Error Handling**: Detailed, descriptive typed errors are propagated over JSON-RPC to let the consuming LLM make smart fallback decisions.
 - **🌐 Rotating SOCKS5/HTTP Proxy Support**: Pools multiple proxies and rotates them randomly per request attempt for both standard crawling and headless rendering (using Chromiumoxide). Helps bypass rate-limits and prevent IP bans.
 
@@ -34,8 +34,8 @@ An extremely high-performance Model Context Protocol (MCP) search, crawl, and co
    - **Description**: Search the web, crawl the top `N` results concurrently, convert to markdown, index them locally, and return the formatted content.
    - **Parameters**: `query: String`, `max_pages: Option<usize>`
 4. `recall`
-   - **Description**: Full-text search across your local database of previously crawled pages.
-   - **Parameters**: `query: String`, `max_results: Option<usize>`
+   - **Description**: Search your local database of previously crawled pages using local semantic vector embeddings (with classic keyword search fallback).
+   - **Parameters**: `query: String`, `max_results: Option<usize>`, `semantic: Option<bool>`
 5. `index_content`
    - **Description**: Manually index arbitrary text content for later recall by the agent.
    - **Parameters**: `url: String`, `title: String`, `content: String`

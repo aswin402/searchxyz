@@ -1,6 +1,6 @@
 [package]
 name = "searchxyz"
-version = "0.0.7"
+version = "0.0.8"
 edition = "2021"
 description = "MCP search server — search the web, crawl pages, and index content for AI agents"
 
@@ -55,11 +55,17 @@ dirs = "5.0"
 rand = "0.9"
 pdf-extract = "0.7"
 lopdf = "0.34"
+fastembed = "5.17.2"
+openssl = { version = "0.10", features = ["vendored"] }
+openssl-sys = { version = "0.9", features = ["vendored"] }
 chromiumoxide = { version = "0.9.1", optional = true }
 
 [features]
-default = []
 js-rendering = ["dep:chromiumoxide"]
+
+[build-dependencies]
+openssl = { version = "0.10", features = ["vendored"] }
+openssl-sys = { version = "0.9", features = ["vendored"] }
 
 [workspace]
 # Empty workspace table to build independently of parent workspace when run directly.

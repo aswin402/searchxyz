@@ -49,6 +49,8 @@ pub struct RecallRequest {
     pub query: String,
     #[schemars(description = "Max results (default: 5)")]
     pub max_results: Option<usize>,
+    #[schemars(description = "Perform a semantic vector search instead of strict BM25 keyword matching (default: true).")]
+    pub semantic: Option<bool>,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -199,7 +201,12 @@ impl SearchXyzServer {
     #[tool(description = "Search your local knowledge base of previously read pages. Use to find information from earlier research.")]
     async fn recall(&self, req: Parameters<RecallRequest>) -> Result<String, rmcp::ErrorData> {
         let max = req.0.max_results.unwrap_or(5);
-        let results = self.index.search(&req.0.query, max)?;
+        let use_semantic = req.0.semantic.unwrap_or(true);
+        let results = if use_semantic {
+            self.index.search_semantic(&req.0.query, max)?
+        } else {
+            self.index.search(&req.0.query, max)?
+        };
         if results.is_empty() {
             return Ok("No matching documents found in the local index. Try search_and_read to fetch new content first.".to_string());
         }
