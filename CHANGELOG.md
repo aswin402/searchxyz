@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.0.9] - 2026-06-21
+
+### Added
+- **Documentation Updates**: Synchronized `docs/implementation.md` code snapshots and `docs/todo.md` checklist with local vector embeddings and hybrid semantic search implementation details.
+
 ## [0.0.8] - 2026-06-21
 
 ### Added

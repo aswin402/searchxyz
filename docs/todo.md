@@ -548,10 +548,10 @@
 > **Goal:** Advanced AI-native features.
 > **Dependencies:** v1.1 stable
 
-- [ ] **Vector embeddings + semantic search:**
-  - `fastembed-rs` or `candle` for local embedding generation
-  - Store embeddings alongside Tantivy text index
-  - Hybrid search: BM25 + cosine similarity
+- [x] **Vector embeddings + semantic search:**
+  - [x] `fastembed-rs` or `candle` for local embedding generation
+  - [x] Store embeddings alongside Tantivy text index
+  - [x] Hybrid search: BM25 + cosine similarity
 - [ ] **Knowledge graph:**
   - Extract entities and relationships from indexed content
   - Store as directed graph
