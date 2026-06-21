@@ -190,9 +190,9 @@ urls = [
 ## Roadmap & Future Enhancements
 
 The project is fully complete through Phase 13 (v2.1). Future extensions on the roadmap include:
-1. **Visual Knowledge Graph Visualizer**: A browser-accessible interactive UI graph visualizer mapping connections between documents, topics, and code files.
-2. **Web UI Search Dashboard**: A local static website dashboard frontend to query and browse index listings, edit cache items, and manage configuration keys.
-3. **Advanced Retrieval Heuristics**: Re-ranking techniques such as BM25 score adjustment based on Graph connectivity metrics.
+1. **Advanced Retrieval Heuristics**: Re-ranking techniques (such as BM25 score adjustment based on Graph connectivity metrics) to return the most semantically relevant context to LLM clients.
+2. **Dynamic Context-Token Packing**: Allow agents to query tools with a strict token budget, automatically summarizing or pruning retrieved chunks to fit the budget.
+3. **Graph-Augmented Semantic Recall**: Automatically append related concept nodes and adjacency references from the Knowledge Graph when querying semantic search, feeding the agent richer context connections.
 
 ---
 
