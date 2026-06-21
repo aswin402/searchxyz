@@ -13,6 +13,7 @@
     "core": [
       "anyhow",
       "async-trait",
+      "axum",
       "chromiumoxide",
       "chrono",
       "clap",

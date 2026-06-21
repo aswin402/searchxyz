@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.0.13] - 2026-06-21
+
+### Added
+- **Streamable HTTP Transport & Remote Server Deployment**: Integrated Axum HTTP framework to support running `searchxyz` as a remote server over HTTP/SSE.
+- **Port and Host Customization Flags**: Added `--http`, `--host`, and `--port` CLI flags to parameterize network binding.
+- **Backward Stdio Compatibility**: Maintained default stdio transport connection for standard MCP integrations (Claude Desktop, MCP Inspector).
+
 ## [0.0.12] - 2026-06-21
 
 ### Added

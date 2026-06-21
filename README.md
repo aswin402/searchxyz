@@ -6,7 +6,7 @@
 
 An extremely high-performance Model Context Protocol (MCP) search, crawl, and content-indexing server written in Rust.
 
-**Version:** 0.0.12
+**Version:** 0.0.13
 
 ---
 
@@ -44,11 +44,20 @@ An extremely high-performance Model Context Protocol (MCP) search, crawl, and co
 
 ## How it Works & Handshake Verification
 
-The server starts over stdio transport. You can verify the handshake by piping standard JSON-RPC requests:
+The server starts over stdio transport by default. You can verify the handshake by piping standard JSON-RPC requests:
 
 ```bash
 # Verify tools list response
 printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test-client","version":"1.0"}}}\n{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}\n' | ./target/debug/searchxyz
+```
+
+## Remote HTTP Server & SSE Transport
+
+`searchxyz` can also run as a remote HTTP server utilizing Server-Sent Events (SSE) transport. This is ideal for remote hosting or multi-user deployments.
+
+```bash
+# Run HTTP server binding to 127.0.0.1 on port 3000 (endpoints exposed at http://127.0.0.1:3000/mcp)
+./target/debug/searchxyz --http --host 127.0.0.1 --port 3000
 ```
 
 ---

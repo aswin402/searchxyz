@@ -1,17 +1,18 @@
 [package]
 name = "searchxyz"
-version = "0.0.12"
+version = "0.0.13"
 edition = "2021"
 description = "MCP search server — search the web, crawl pages, and index content for AI agents"
 
 [dependencies]
 # ── MCP protocol ──
-rmcp = { version = "1.7.0", features = ["server", "macros", "transport-io"] }
+rmcp = { version = "1.7.0", features = ["server", "macros", "transport-io", "transport-streamable-http-server"] }
 
 # ── Async runtime ──
 tokio = { version = "1", features = ["full"] }
 async-trait = "0.1"
 futures = "0.3"
+axum = "0.7"
 
 # ── HTTP (using rustls-tls to avoid native openssl compiler dependency) ──
 reqwest = { version = "0.12", default-features = false, features = ["json", "gzip", "brotli", "cookies", "rustls-tls", "socks"] }

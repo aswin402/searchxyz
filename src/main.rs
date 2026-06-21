@@ -37,6 +37,18 @@ struct Cli {
     /// Path to config file (default: searchxyz.toml)
     #[arg(short, long)]
     config: Option<String>,
+
+    /// Run as a remote HTTP server instead of stdio
+    #[arg(long)]
+    http: bool,
+
+    /// Host to bind the HTTP server to (default: 127.0.0.1)
+    #[arg(long, default_value = "127.0.0.1")]
+    host: String,
+
+    /// Port to listen on (default: 3000)
+    #[arg(short, long, default_value = "3000")]
+    port: u16,
 }
 
 // ── Entry point ──────────────────────────────────────────────
@@ -142,22 +154,40 @@ async fn main() -> anyhow::Result<()> {
         config.clone(),
     );
 
-    // ── 6. Start MCP server on stdio ──
-    tracing::info!("MCP server listening on stdio");
+    if cli.http {
+        let addr = format!("{}:{}", cli.host, cli.port);
+        tracing::info!(bind = %addr, "Starting searchxyz remote HTTP server");
 
-    let service = server.serve(stdio()).await.inspect_err(|e| {
-        tracing::error!(error = %e, "Failed to start server");
-    })?;
+        let streamable_service = rmcp::transport::streamable_http_server::StreamableHttpService::new(
+            move || Ok(server.clone()),
+            rmcp::transport::streamable_http_server::session::local::LocalSessionManager::default().into(),
+            Default::default(),
+        );
 
-    // ── 7. Wait for shutdown ──
-    tokio::select! {
-        result = service.waiting() => {
-            if let Err(e) = result {
-                tracing::error!(error = %e, "Server error");
+        let app = axum::Router::new().nest_service("/mcp", streamable_service);
+
+        let listener = tokio::net::TcpListener::bind(&addr).await?;
+        tracing::info!("HTTP server listening on http://{}/mcp", addr);
+
+        axum::serve(listener, app).await?;
+    } else {
+        // ── 6. Start MCP server on stdio ──
+        tracing::info!("MCP server listening on stdio");
+
+        let service = server.serve(stdio()).await.inspect_err(|e| {
+            tracing::error!(error = %e, "Failed to start server");
+        })?;
+
+        // ── 7. Wait for shutdown ──
+        tokio::select! {
+            result = service.waiting() => {
+                if let Err(e) = result {
+                    tracing::error!(error = %e, "Server error");
+                }
             }
-        }
-        _ = tokio::signal::ctrl_c() => {
-            tracing::info!("Received Ctrl+C, shutting down");
+            _ = tokio::signal::ctrl_c() => {
+                tracing::info!("Received Ctrl+C, shutting down");
+            }
         }
     }
 
