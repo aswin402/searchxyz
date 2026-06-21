@@ -98,6 +98,8 @@ pub struct CacheConfig {
     pub max_entries: usize,
     /// TTL per entry in seconds.
     pub ttl_secs: u64,
+    /// Path to store the persistent cache file.
+    pub path: PathBuf,
 }
 
 // ── Defaults ─────────────────────────────────────────────────
@@ -208,6 +210,10 @@ impl Default for CacheConfig {
         Self {
             max_entries: 1000,
             ttl_secs: 3600,
+            path: dirs::data_dir()
+                .unwrap_or_else(|| PathBuf::from("."))
+                .join("searchxyz")
+                .join("cache.json"),
         }
     }
 }
@@ -268,6 +274,9 @@ impl Config {
             if let Ok(n) = val.parse() {
                 self.cache.ttl_secs = n;
             }
+        }
+        if let Ok(path) = std::env::var("SEARCHXYZ_CACHE_PATH") {
+            self.cache.path = PathBuf::from(path);
         }
         if let Ok(enabled) = std::env::var("SEARCHXYZ_HEADLESS_ENABLED") {
             if let Ok(b) = enabled.parse() {
@@ -394,6 +403,7 @@ mod tests {
     fn test_env_overrides() {
         std::env::set_var("SEARCHXYZ_PROXY_ENABLED", "true");
         std::env::set_var("SEARCHXYZ_PROXY_URLS", "http://proxy1:8080, socks5://proxy2:1080");
+        std::env::set_var("SEARCHXYZ_CACHE_PATH", "/tmp/searchxyz-test-cache.json");
 
         let mut config = Config::default();
         config.apply_env_overrides();
@@ -403,10 +413,12 @@ mod tests {
             "http://proxy1:8080".to_string(),
             "socks5://proxy2:1080".to_string()
         ]);
+        assert_eq!(config.cache.path, PathBuf::from("/tmp/searchxyz-test-cache.json"));
 
         // Clean up
         std::env::remove_var("SEARCHXYZ_PROXY_ENABLED");
         std::env::remove_var("SEARCHXYZ_PROXY_URLS");
+        std::env::remove_var("SEARCHXYZ_CACHE_PATH");
     }
 }
 

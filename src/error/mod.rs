@@ -92,6 +92,12 @@ impl From<std::io::Error> for SearchXyzError {
     }
 }
 
+impl From<serde_json::Error> for SearchXyzError {
+    fn from(err: serde_json::Error) -> Self {
+        SearchXyzError::ConfigError(format!("JSON error: {err}"))
+    }
+}
+
 impl From<SearchXyzError> for rmcp::ErrorData {
     fn from(err: SearchXyzError) -> Self {
         rmcp::ErrorData::internal_error(err.to_string(), None)

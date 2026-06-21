@@ -64,9 +64,10 @@ async fn main() -> anyhow::Result<()> {
     );
 
     // ── 3. Build shared cache ──
-    let cache = Arc::new(Mutex::new(Cache::new(
+    let cache = Arc::new(Mutex::new(Cache::load_from_file(
         config.cache.max_entries,
         config.cache.ttl_secs,
+        &config.cache.path,
     )));
 
     // ── 4. Build components ──
@@ -128,7 +129,7 @@ async fn main() -> anyhow::Result<()> {
         crawler,
         extractor,
         index,
-        cache,
+        cache.clone(),
         config.clone(),
     );
 
@@ -149,6 +150,15 @@ async fn main() -> anyhow::Result<()> {
         _ = tokio::signal::ctrl_c() => {
             tracing::info!("Received Ctrl+C, shutting down");
         }
+    }
+
+    // ── 8. Save cache to disk ──
+    tracing::info!("Saving cache to disk...");
+    let cache_guard = cache.lock().await;
+    if let Err(e) = cache_guard.save_to_file(&config.cache.path) {
+        tracing::error!(error = %e, "Failed to save cache to disk");
+    } else {
+        tracing::info!(path = ?config.cache.path, "Cache saved successfully");
     }
 
     tracing::info!("searchxyz server stopped");

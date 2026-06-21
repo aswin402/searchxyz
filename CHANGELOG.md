@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.0.6] - 2026-06-21
+
+### Added
+- **Persistent LRU Crawl Cache**: Implemented serializable LRU cache serialization and deserialization using `serde` and `serde_json`.
+- **Startup Restore & Shutdown Save**: Restores crawled pages from disk on startup and automatically saves non-expired entries on graceful shutdown.
+- **Cache Storage Path Configuration**: Added `[cache].path` setting to `searchxyz.toml` and `SEARCHXYZ_CACHE_PATH` environment variable override support.
+
+---
+
 ## [0.0.5] - 2026-06-21
 
 ### Added

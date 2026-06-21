@@ -1,6 +1,6 @@
 [package]
 name = "searchxyz"
-version = "0.0.5"
+version = "0.0.6"
 edition = "2021"
 description = "MCP search server — search the web, crawl pages, and index content for AI agents"
 

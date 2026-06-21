@@ -6,7 +6,7 @@
 
 An extremely high-performance Model Context Protocol (MCP) search, crawl, and content-indexing server written in Rust.
 
-**Version:** 0.0.5
+**Version:** 0.0.6
 
 ---
 
@@ -95,6 +95,7 @@ rate_limit_per_sec = 2
 [cache]
 max_entries = 1000
 ttl_secs = 3600 # 1 hour
+path = "~/.local/share/searchxyz/cache.json"
 
 [proxy]
 enabled = false
@@ -107,6 +108,7 @@ urls = [
 - **SEARCHXYZ_BRAVE_API_KEY**: Overrides the Brave API key if set in env.
 - **SEARCHXYZ_INDEX_PATH**: Overrides the index storage location.
 - **SEARCHXYZ_LOG_LEVEL**: Overrides the server log level filter.
+- **SEARCHXYZ_CACHE_PATH**: Overrides the persistent cache file location.
 - **SEARCHXYZ_PROXY_ENABLED**: Set to `true` to enable proxy rotation.
 - **SEARCHXYZ_PROXY_URLS**: Comma-separated list of SOCKS5 or HTTP proxy URLs to populate the rotation pool.
 
