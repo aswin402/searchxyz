@@ -20,6 +20,7 @@ pub struct Config {
     pub cache: CacheConfig,
     pub searxng: SearXngConfig,
     pub headless: HeadlessConfig,
+    pub proxy: ProxyConfig,
 }
 
 // ── Sub-configs ──────────────────────────────────────────────
@@ -113,6 +114,7 @@ impl Default for Config {
             cache: CacheConfig::default(),
             searxng: SearXngConfig::default(),
             headless: HeadlessConfig::default(),
+            proxy: ProxyConfig::default(),
         }
     }
 }
@@ -280,6 +282,18 @@ impl Config {
                 self.headless.wait_after_load_ms = n;
             }
         }
+        if let Ok(enabled) = std::env::var("SEARCHXYZ_PROXY_ENABLED") {
+            if let Ok(b) = enabled.parse() {
+                self.proxy.enabled = b;
+            }
+        }
+        if let Ok(urls_str) = std::env::var("SEARCHXYZ_PROXY_URLS") {
+            self.proxy.urls = urls_str
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
+        }
     }
 
     /// Validate invariants.
@@ -346,6 +360,53 @@ impl Default for HeadlessConfig {
             viewport_width: 1280,
             viewport_height: 800,
         }
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(default)]
+pub struct ProxyConfig {
+    pub enabled: bool,
+    pub urls: Vec<String>,
+}
+
+impl Default for ProxyConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            urls: Vec::new(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_config_defaults() {
+        let config = Config::default();
+        assert!(!config.proxy.enabled);
+        assert!(config.proxy.urls.is_empty());
+    }
+
+    #[test]
+    fn test_env_overrides() {
+        std::env::set_var("SEARCHXYZ_PROXY_ENABLED", "true");
+        std::env::set_var("SEARCHXYZ_PROXY_URLS", "http://proxy1:8080, socks5://proxy2:1080");
+
+        let mut config = Config::default();
+        config.apply_env_overrides();
+
+        assert!(config.proxy.enabled);
+        assert_eq!(config.proxy.urls, vec![
+            "http://proxy1:8080".to_string(),
+            "socks5://proxy2:1080".to_string()
+        ]);
+
+        // Clean up
+        std::env::remove_var("SEARCHXYZ_PROXY_ENABLED");
+        std::env::remove_var("SEARCHXYZ_PROXY_URLS");
     }
 }
 

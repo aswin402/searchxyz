@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.0.5] - 2026-06-21
+
+### Added
+- **Rotating Proxy & SOCKS5 Support**: Pool multiple reqwest clients each bound to a specific proxy and randomly rotate them per request attempt.
+- **SOCKS5 Protocol Support**: Enabled the `socks` feature flag for the `reqwest` HTTP client, enabling native SOCKS5/HTTP/HTTPS proxy URLs.
+- **Headless Browser Proxy Support**: Randomly selects and configures a proxy via the `--proxy-server` command line argument when spawning Chromium/Chrome through `chromiumoxide`.
+- **Environment Overrides**: Added support for overriding proxy configuration via `SEARCHXYZ_PROXY_ENABLED` (boolean) and `SEARCHXYZ_PROXY_URLS` (comma-separated list of proxy URLs).
+
+---
+
 ## [0.0.4] - 2026-06-21
 
 ### Added

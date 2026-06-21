@@ -23,7 +23,7 @@ type DomainRateLimiter =
 /// The crawler fetches HTML pages with timeouts, retries, and
 /// per-domain rate limiting.
 pub struct Crawler {
-    client: Client,
+    clients: Vec<Client>,
     config: CrawlerConfig,
     rate_limiter: Arc<DomainRateLimiter>,
     cache: Arc<Mutex<Cache>>,
@@ -43,19 +43,51 @@ impl Crawler {
     pub fn new(
         config: CrawlerConfig,
         headless_config: crate::config::HeadlessConfig,
+        proxy_config: crate::config::ProxyConfig,
         cache: Arc<Mutex<Cache>>,
     ) -> Self {
-        // Build HTTP client with all safety guards.
-        let client = Client::builder()
-            .timeout(Duration::from_secs(config.timeout_secs))
-            .connect_timeout(Duration::from_secs(10))
-            .user_agent(&config.user_agent)
-            .redirect(Policy::limited(config.max_redirects))
-            .pool_max_idle_per_host(4)
-            .gzip(true)
-            .brotli(true)
-            .build()
-            .expect("Failed to build HTTP client");
+        let mut clients = Vec::new();
+        if proxy_config.enabled && !proxy_config.urls.is_empty() {
+            for proxy_url in &proxy_config.urls {
+                match reqwest::Proxy::all(proxy_url) {
+                    Ok(proxy) => {
+                        match Client::builder()
+                            .timeout(Duration::from_secs(config.timeout_secs))
+                            .connect_timeout(Duration::from_secs(10))
+                            .user_agent(&config.user_agent)
+                            .redirect(Policy::limited(config.max_redirects))
+                            .pool_max_idle_per_host(4)
+                            .gzip(true)
+                            .brotli(true)
+                            .proxy(proxy)
+                            .build()
+                        {
+                            Ok(client) => clients.push(client),
+                            Err(e) => {
+                                tracing::error!(proxy_url, error = %e, "Failed to build proxied HTTP client");
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        tracing::error!(proxy_url, error = %e, "Failed to parse proxy URL");
+                    }
+                }
+            }
+        }
+
+        if clients.is_empty() {
+            let client = Client::builder()
+                .timeout(Duration::from_secs(config.timeout_secs))
+                .connect_timeout(Duration::from_secs(10))
+                .user_agent(&config.user_agent)
+                .redirect(Policy::limited(config.max_redirects))
+                .pool_max_idle_per_host(4)
+                .gzip(true)
+                .brotli(true)
+                .build()
+                .expect("Failed to build default HTTP client");
+            clients.push(client);
+        }
 
         // Per-domain rate limiter: N requests/sec per domain.
         let quota = Quota::per_second(
@@ -63,10 +95,10 @@ impl Crawler {
                 .unwrap_or(NonZeroU32::new(2).unwrap()),
         );
         let rate_limiter = Arc::new(RateLimiter::keyed(quota));
-        let headless_browser = HeadlessBrowser::new(headless_config);
+        let headless_browser = HeadlessBrowser::new(headless_config, proxy_config);
 
         Self {
-            client,
+            clients,
             config,
             rate_limiter,
             cache,
@@ -131,8 +163,9 @@ impl Crawler {
             attempt += 1;
 
             let headers = fingerprint::HeaderGenerator::random_headers();
-            let resp = self
-                .client
+            use rand::seq::IndexedRandom;
+            let client = self.clients.choose(&mut rand::rng()).unwrap_or(&self.clients[0]);
+            let resp = client
                 .get(url)
                 .headers(headers)
                 .send()
@@ -301,5 +334,37 @@ impl Crawler {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{CrawlerConfig, HeadlessConfig, ProxyConfig};
+    use crate::cache::Cache;
+    use std::sync::Arc;
+    use tokio::sync::Mutex;
+
+    #[tokio::test]
+    async fn test_crawler_client_pooling() {
+        let crawler_config = CrawlerConfig::default();
+        let headless_config = HeadlessConfig::default();
+        let cache = Arc::new(Mutex::new(Cache::new(10, 60)));
+
+        // Case 1: Proxy disabled
+        let proxy_config = ProxyConfig {
+            enabled: false,
+            urls: vec!["http://127.0.0.1:8080".to_string()],
+        };
+        let crawler = Crawler::new(crawler_config.clone(), headless_config.clone(), proxy_config, cache.clone());
+        assert_eq!(crawler.clients.len(), 1);
+
+        // Case 2: Proxy enabled with valid urls
+        let proxy_config = ProxyConfig {
+            enabled: true,
+            urls: vec!["http://127.0.0.1:8080".to_string(), "socks5://127.0.0.1:1080".to_string()],
+        };
+        let crawler = Crawler::new(crawler_config, headless_config, proxy_config, cache);
+        assert_eq!(crawler.clients.len(), 2);
     }
 }

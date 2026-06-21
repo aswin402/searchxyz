@@ -5,11 +5,12 @@ use crate::error::SearchXyzError;
 pub struct HeadlessBrowser {
     #[allow(dead_code)]
     config: HeadlessConfig,
+    proxy_config: crate::config::ProxyConfig,
 }
 
 impl HeadlessBrowser {
-    pub fn new(config: HeadlessConfig) -> Self {
-        Self { config }
+    pub fn new(config: HeadlessConfig, proxy_config: crate::config::ProxyConfig) -> Self {
+        Self { config, proxy_config }
     }
 
     #[cfg(feature = "js-rendering")]
@@ -25,6 +26,14 @@ impl HeadlessBrowser {
 
         if let Some(ref path) = self.config.chrome_path {
             config_builder = config_builder.chrome_executable(path);
+        }
+
+        if self.proxy_config.enabled && !self.proxy_config.urls.is_empty() {
+            use rand::seq::IndexedRandom;
+            if let Some(proxy_url) = self.proxy_config.urls.choose(&mut rand::rng()) {
+                tracing::info!(proxy_url, "Using proxy for headless browser");
+                config_builder = config_builder.arg(format!("--proxy-server={}", proxy_url));
+            }
         }
 
         // Launch browser

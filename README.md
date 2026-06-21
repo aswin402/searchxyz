@@ -6,7 +6,7 @@
 
 An extremely high-performance Model Context Protocol (MCP) search, crawl, and content-indexing server written in Rust.
 
-**Version:** 0.0.4
+**Version:** 0.0.5
 
 ---
 
@@ -18,6 +18,7 @@ An extremely high-performance Model Context Protocol (MCP) search, crawl, and co
 - **⚡ Concurrent Crawls**: Crawls and extracts up to 5 top result pages concurrently using `tokio` asynchronous workers when executing `search_and_read`.
 - **💾 Local Recall Index**: Integrates a Tantivy full-text index database, acting as a search-recall memory layer for AI agents. Queries are returned in `<2ms` from the local database.
 - **🛡️ Agent-Friendly Error Handling**: Detailed, descriptive typed errors are propagated over JSON-RPC to let the consuming LLM make smart fallback decisions.
+- **🌐 Rotating SOCKS5/HTTP Proxy Support**: Pools multiple proxies and rotates them randomly per request attempt for both standard crawling and headless rendering (using Chromiumoxide). Helps bypass rate-limits and prevent IP bans.
 
 ---
 
@@ -94,11 +95,20 @@ rate_limit_per_sec = 2
 [cache]
 max_entries = 1000
 ttl_secs = 3600 # 1 hour
+
+[proxy]
+enabled = false
+urls = [
+    "http://proxy-host:8080",
+    "socks5://proxy-host:1080"
+]
 ```
 
 - **SEARCHXYZ_BRAVE_API_KEY**: Overrides the Brave API key if set in env.
 - **SEARCHXYZ_INDEX_PATH**: Overrides the index storage location.
 - **SEARCHXYZ_LOG_LEVEL**: Overrides the server log level filter.
+- **SEARCHXYZ_PROXY_ENABLED**: Set to `true` to enable proxy rotation.
+- **SEARCHXYZ_PROXY_URLS**: Comma-separated list of SOCKS5 or HTTP proxy URLs to populate the rotation pool.
 
 ---
 
