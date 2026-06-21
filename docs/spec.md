@@ -803,6 +803,282 @@ pub struct CacheConfig {
 
 ---
 
+### 6.6 `list_sources`
+
+| Field | Value |
+|---|---|
+| **Name** | `list_sources` |
+| **Description** | List all documents and cached pages in the local knowledge base with metadata. |
+
+**Parameters:**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "source": {
+      "type": "string",
+      "description": "Optional source filter (e.g., 'youtube', 'manual', 'read_url', 'imported')"
+    },
+    "limit": {
+      "type": "integer",
+      "description": "Maximum number of items to return (default: 50, max: 100)"
+    },
+    "offset": {
+      "type": "integer",
+      "description": "Pagination offset"
+    }
+  }
+}
+```
+
+**Output:** A markdown list of sources, showing titles, URLs, indexing times, and source types.
+
+---
+
+### 6.7 `deep_research`
+
+| Field | Value |
+|---|---|
+| **Name** | `deep_research` |
+| **Description** | Expand a query into multiple sub-queries, fetch and crawl their results in parallel, index all findings locally, and return a compiled markdown research report. |
+
+**Parameters:**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "query": {
+      "type": "string",
+      "description": "The root query to research"
+    },
+    "breadth": {
+      "type": "integer",
+      "description": "Number of expanded queries to run (default: 3, max: 5)"
+    },
+    "max_pages_per_query": {
+      "type": "integer",
+      "description": "Max pages to crawl per sub-query (default: 2, max: 4)"
+    },
+    "render_js": {
+      "type": "boolean",
+      "description": "Enable headless Chromium JS rendering (default: false)"
+    }
+  },
+  "required": ["query"]
+}
+```
+
+**Output:** A compiled markdown dossier including sections for each query expansion and full crawled document texts.
+
+---
+
+### 6.8 `site_map`
+
+| Field | Value |
+|---|---|
+| **Name** | `site_map` |
+| **Description** | Map a website's structure by discovering all internal page URLs using sitemap.xml and/or fast recursive link crawling. |
+
+**Parameters:**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "url": {
+      "type": "string",
+      "description": "The base website URL to spider"
+    },
+    "use_sitemap": {
+      "type": "boolean",
+      "description": "Whether to parse sitemap.xml files (default: true)"
+    },
+    "crawl_links": {
+      "type": "boolean",
+      "description": "Whether to perform recursive fast link discovery (default: true)"
+    },
+    "max_links": {
+      "type": "integer",
+      "description": "Max links to discover (default: 100, max: 500)"
+    }
+  },
+  "required": ["url"]
+}
+```
+
+**Output:** Markdown list of discovered internal URLs.
+
+---
+
+### 6.9 `index_relationship`
+
+| Field | Value |
+|---|---|
+| **Name** | `index_relationship` |
+| **Description** | Store a semantic connection (edge) between two entities in the knowledge graph. |
+
+**Parameters:**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "source": {
+      "type": "string",
+      "description": "Name of the source node"
+    },
+    "source_type": {
+      "type": "string",
+      "description": "Type/label of the source node (e.g. 'Repository', 'Technology')"
+    },
+    "target": {
+      "type": "string",
+      "description": "Name of the target node"
+    },
+    "target_type": {
+      "type": "string",
+      "description": "Type/label of the target node (e.g. 'Library', 'Concept')"
+    },
+    "relationship": {
+      "type": "string",
+      "description": "Description of the edge relationship (e.g. 'DEPENDS_ON', 'IMPLEMENTS')"
+    }
+  },
+  "required": ["source", "source_type", "target", "target_type", "relationship"]
+}
+```
+
+**Output:** A success message confirming the indexed relationship.
+
+---
+
+### 6.10 `query_graph`
+
+| Field | Value |
+|---|---|
+| **Name** | `query_graph` |
+| **Description** | Query the local knowledge graph to discover entities and relationships connected to a starting concept, technology, or document. |
+
+**Parameters:**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "entity": {
+      "type": "string",
+      "description": "The entity name to search neighbors for"
+    },
+    "max_depth": {
+      "type": "integer",
+      "description": "Maximum path traversal depth (default: 2, max: 4)"
+    }
+  },
+  "required": ["entity"]
+}
+```
+
+**Output:** Markdown list of connected entities and connections.
+
+---
+
+### 6.11 `read_github_repo`
+
+| Field | Value |
+|---|---|
+| **Name** | `read_github_repo` |
+| **Description** | Clone and index a GitHub repository, parsing its files and README into the local knowledge base. |
+
+**Parameters:**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "repo_url": {
+      "type": "string",
+      "description": "The GitHub repository URL (e.g. 'https://github.com/tokio-rs/tokio')"
+    },
+    "branch": {
+      "type": "string",
+      "description": "Optional branch name (e.g. 'master', 'main'). Defaults to the default branch."
+    },
+    "include_extensions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Optional list of file extensions to include (e.g. ['rs', 'md']). Defaults to standard code/text extensions."
+    },
+    "exclude_paths": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Optional list of folder/file paths to ignore."
+    }
+  },
+  "required": ["repo_url"]
+}
+```
+
+**Output:** A detailed codebase directory tree and structure summary in markdown.
+
+---
+
+### 6.12 `export_research`
+
+| Field | Value |
+|---|---|
+| **Name** | `export_research` |
+| **Description** | Export indexed documents and knowledge graph relationships connected to a research topic into a portable JSON bundle. |
+
+**Parameters:**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "query": {
+      "type": "string",
+      "description": "Optional query to filter exported documents. If omitted, all documents are exported."
+    },
+    "limit": {
+      "type": "integer",
+      "description": "Optional limit on how many documents to export (default 50, max 200)."
+    }
+  }
+}
+```
+
+**Output:** A serialized JSON string of the research bundle payload containing documents and graph data.
+
+---
+
+### 6.13 `import_research`
+
+| Field | Value |
+|---|---|
+| **Name** | `import_research` |
+| **Description** | Import a research bundle payload into the local index and knowledge graph. |
+
+**Parameters:**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "payload": {
+      "type": "string",
+      "description": "The serialized JSON research bundle payload."
+    }
+  },
+  "required": ["payload"]
+}
+```
+
+**Output:** A success confirmation message detailing the number of imported documents and updated graph connections.
+
+---
+
 ## 7. Concurrency Model
 
 ### 7.1 Tokio Runtime

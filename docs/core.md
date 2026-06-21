@@ -47,12 +47,7 @@ searchxyz/
     │   ├── mod.rs            # LRU content cache — get, insert, evict
     │   └── types.rs          # CacheEntry, CacheKey, CacheStats
     ├── tools/
-    │   ├── mod.rs            # MCP tool registration & dispatch
-    │   ├── search_web.rs     # `search_web` tool handler
-    │   ├── read_url.rs       # `read_url` tool handler
-    │   ├── search_and_read.rs# `search_and_read` tool handler
-    │   ├── recall.rs         # `recall` tool handler
-    │   └── index_content.rs  # `index_content` tool handler
+    │   └── mod.rs            # MCP tool schemas, definitions, and handlers
     └── pipeline/
         ├── mod.rs            # Pipeline stage abstraction
         └── research.rs       # Multi-step research pipeline orchestrator
@@ -71,7 +66,7 @@ searchxyz/
 | **`extractor/`** | Transforms raw HTML into clean, structured content. `readability.rs` implements a readability algorithm to extract the main article body. `markdown.rs` converts cleaned HTML into Markdown via the `MarkdownConverter` trait. `metadata.rs` extracts title, description, Open Graph tags, and favicons. |
 | **`index/`** | Wraps Tantivy for full-text indexing and search. `schema.rs` defines the index schema. `writer.rs` enforces the single-writer pattern with batched commits. `reader.rs` provides query parsing, BM25 scoring, and snippet highlighting. |
 | **`cache/`** | In-memory LRU cache for extracted page content, keyed by URL. Configurable max entries and TTL. `types.rs` defines `CacheEntry` with content, metadata, and insertion timestamp. |
-| **`tools/`** | Each file implements one MCP tool handler. `mod.rs` handles tool registration and request dispatch. Every handler follows the pattern: validate input → execute logic → format response → handle errors. |
+| **`tools/`** | Exposes the `SearchXyzServer` struct. `mod.rs` contains all MCP tool request schemas and async handlers (including GitHub ingestion and research sharing endpoints) defined using the `#[tool]` macro. |
 | **`pipeline/`** | Orchestrates multi-step workflows. `research.rs` chains search → crawl → extract → index into a single pipeline with configurable parallelism and early termination on sufficient results. |
 
 ---

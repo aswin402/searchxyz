@@ -446,30 +446,30 @@
 
 ### Testing
 
-- [ ] End-to-end testing with **20+ real websites** across categories:
-  - News (CNN, BBC, Reuters)
-  - Technical docs (docs.rs, MDN, Rust Book)
-  - Wikipedia articles
-  - Blog posts (Medium, Dev.to)
-  - GitHub READMEs
-- [ ] Edge case testing:
-  - Timeout (very slow server)
-  - 404 (dead links)
-  - Empty pages (placeholder sites)
-  - Huge pages (> 5MB)
-  - Non-HTML (PDF, JSON endpoints)
-  - Non-English content (UTF-8 handling)
+- [x] End-to-end testing with **20+ real websites** across categories:
+  - [x] News (CNN, BBC, Reuters)
+  - [x] Technical docs (docs.rs, MDN, Rust Book)
+  - [x] Wikipedia articles
+  - [x] Blog posts (Medium, Dev.to)
+  - [x] GitHub READMEs
+- [x] Edge case testing:
+  - [x] Timeout (very slow server)
+  - [x] 404 (dead links)
+  - [x] Empty pages (placeholder sites)
+  - [x] Huge pages (> 5MB)
+  - [x] Non-HTML (PDF, JSON endpoints)
+  - [x] Non-English content (UTF-8 handling)
 
 ### Performance
 
-- [ ] Memory profiling with `cargo instruments` or `heaptrack`
-- [ ] Verify memory targets:
+- [x] Memory profiling with `cargo instruments` or `heaptrack`
+- [x] Verify memory targets:
   | Scenario        | Target       |
   |-----------------|--------------|
   | Idle            | < 50MB       |
   | Under load      | < 100MB      |
   | After 100 calls | < 100MB (no leaks) |
-- [ ] Performance benchmarking:
+- [x] Performance benchmarking:
   | Operation           | Target   |
   |---------------------|----------|
   | `recall` query      | < 50ms   |
@@ -478,23 +478,23 @@
 
 ### Quality
 
-- [ ] Review **ALL** error messages — are they actionable for an AI agent?
-- [ ] `cargo clippy -- -D warnings` → zero warnings
-- [ ] `cargo fmt --check` → all formatted
-- [ ] `cargo test` → all passing
-- [ ] `cargo audit` → no known vulnerabilities
+- [x] Review **ALL** error messages — are they actionable for an AI agent?
+- [x] `cargo clippy -- -D warnings` → zero warnings
+- [x] `cargo fmt --check` → all formatted
+- [x] `cargo test` → all passing
+- [x] `cargo audit` → no known vulnerabilities
 
 ### Documentation
 
-- [ ] Write `README.md`:
-  - What is searchxyz and why it exists
-  - Installation (cargo install, binary download)
-  - Configuration (`config.toml` reference)
-  - MCP tool reference with examples
-  - Claude Desktop config example
-  - Performance characteristics
-  - Contributing guide
-- [ ] Create Claude Desktop MCP config example:
+- [x] Write `README.md`:
+  - [x] What is searchxyz and why it exists
+  - [x] Installation (cargo install, binary download)
+  - [x] Configuration (`config.toml` reference)
+  - [x] MCP tool reference with examples
+  - [x] Claude Desktop config example
+  - [x] Performance characteristics
+  - [x] Contributing guide
+- [x] Create Claude Desktop MCP config example:
   ```json
   {
     "mcpServers": {
@@ -511,12 +511,12 @@
 
 ### Release
 
-- [ ] Build release binaries: `cargo build --release`
-- [ ] Verify binary size < 20MB
-- [ ] Test on Linux (x86_64)
-- [ ] Test on macOS (aarch64)
-- [ ] Tag `v0.1.0` in git
-- [ ] Write release notes
+- [x] Build release binaries: `cargo build --release`
+- [x] Verify binary size < 20MB
+- [x] Test on Linux (x86_64)
+- [x] Test on macOS (aarch64)
+- [x] Tag `v0.1.0` in git
+- [x] Write release notes
 
 **Exit criteria:** Binary ships. Docs complete. Tests pass. Performance targets met.
 
@@ -527,18 +527,18 @@
 > **Goal:** Enhanced capabilities based on real-world usage feedback.
 > **Dependencies:** v0.1.0 shipped
 
-- [ ] **Deep research mode:**
-  - Multi-query expansion (rephrase query 3 ways)
-  - Cross-source synthesis (combine results from multiple pages)
-  - Produce structured research report
-- [ ] **PDF text extraction** — detect PDF content-type, extract text
-- [ ] **Configurable search backends** via `config.toml` hot reload
-- [ ] **Cache persistence to disk:**
-  - Serialize cache to disk on shutdown (`serde` + `bincode`)
-  - Load from disk on startup
-  - Graceful degradation if cache file corrupted
-- [ ] **`list_sources` tool** — list all URLs in the local index with metadata
-- [ ] **`deep_research` tool** — multi-step research with synthesis
+- [x] **Deep research mode:**
+  - [x] Multi-query expansion (rephrase query 3 ways)
+  - [x] Cross-source synthesis (combine results from multiple pages)
+  - [x] Produce structured research report
+- [x] **PDF text extraction** — detect PDF content-type, extract text
+- [x] **Configurable search backends** via `config.toml` hot reload
+- [x] **Cache persistence to disk:**
+  - [x] Serialize cache to disk on shutdown (`serde` + `bincode`)
+  - [x] Load from disk on startup
+  - [x] Graceful degradation if cache file corrupted
+- [x] **`list_sources` tool** — list all URLs in the local index with metadata
+- [x] **`deep_research` tool** — multi-step research with synthesis
 - [x] **Site mapping** — discover all URLs on a domain (crawl sitemap.xml, follow links)
 
 ---

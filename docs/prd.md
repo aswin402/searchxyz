@@ -150,6 +150,9 @@ searchxyz solves all five problems in a single, fast, privacy-respecting binary.
 | `site_map` | Discover all internal page URLs of a domain using sitemap.xml and/or fast recursive link crawling. | `url: string` (required), `use_sitemap: bool` (optional, default true), `crawl_links: bool` (optional, default true), `max_links: int` (optional, default 100) | Markdown listing of discovered page URLs. | P2 |
 | `index_relationship` | Store a semantic connection (edge) between two entities in the knowledge graph. | `source: string` (required), `source_type: string` (required), `target: string` (required), `target_type: string` (required), `relationship: string` (required) | Success confirmation message. | P2 |
 | `query_graph` | Query the local knowledge graph to discover entities and relationships connected to a starting concept. | `entity: string` (required), `max_depth: int` (optional, default 2) | Markdown list of connected entities and relationships. | P2 |
+| `read_github_repo` | Clone and recursively index a GitHub repository, parsing its files and README into the search index/knowledge graph and returning a summary. | `repo_url: string` (required), `branch: string` (optional), `include_extensions: array` (optional), `exclude_paths: array` (optional) | Markdown codebase summary and success confirmation. | P2 |
+| `export_research` | Export indexed documents and knowledge graph relationships connected to a research topic into a portable JSON bundle. | `query: string` (optional), `limit: int` (optional, default 50) | Serialized JSON research bundle. | P2 |
+| `import_research` | Import a research bundle payload into the local index and knowledge graph. | `payload: string` (required) | Success confirmation message. | P2 |
 
 
 
