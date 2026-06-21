@@ -157,8 +157,8 @@ impl SearchXyzServer {
             Ok(text)
         } else {
             let fetch_result = self.crawler.fetch_url(url, render_js).await?;
-            let content = self.extractor.extract(url, &fetch_result.body)?;
-            
+            let content = self.extractor.extract(url, &fetch_result.body, Some(&fetch_result.content_type))?;
+
             // Index the single crawled page too!
             if let Err(e) = self.index.add_document(&content, "read_url").await {
                 tracing::warn!(url = %content.url, error = %e, "Failed to index page from read_url (non-fatal)");

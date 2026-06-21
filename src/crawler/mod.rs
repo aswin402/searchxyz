@@ -254,15 +254,18 @@ impl Crawler {
                         .unwrap_or("")
                         .to_string();
 
-                    if !content_type.contains("text/html")
-                        && !content_type.contains("text/plain")
-                        && !content_type.contains("application/xhtml")
-                    {
+                    let is_pdf = content_type.contains("application/pdf");
+                    let is_supported = is_pdf
+                        || content_type.contains("text/html")
+                        || content_type.contains("text/plain")
+                        || content_type.contains("application/xhtml");
+
+                    if !is_supported {
                         return Err(SearchXyzError::CrawlFailed {
                             url: url.into(),
                             reason: format!(
                                 "Unsupported Content-Type: {content_type}. \
-                                 Only HTML pages are supported."
+                                 Only HTML pages and PDF documents are supported."
                             ),
                         });
                     }
@@ -280,24 +283,36 @@ impl Crawler {
                         }
                     }
 
-                    // ── Read body with size limit ──
-                    let body = response
-                        .text()
+                    // ── Read response bytes ──
+                    let bytes = response
+                        .bytes()
                         .await
                         .map_err(|e| SearchXyzError::CrawlFailed {
                             url: url.into(),
-                            reason: format!("Failed to read body: {e}"),
+                            reason: format!("Failed to read response bytes: {e}"),
                         })?;
 
-                    if body.len() > self.config.max_body_bytes {
+                    if bytes.len() > self.config.max_body_bytes {
                         return Err(SearchXyzError::CrawlFailed {
                             url: url.into(),
                             reason: format!(
                                 "Body exceeds limit ({} bytes)",
-                                body.len()
+                                bytes.len()
                             ),
                         });
                     }
+
+                    // ── Extract body string (HTML/text vs PDF) ──
+                    let body = if is_pdf {
+                        tracing::info!(url, "Extracting text from PDF document");
+                        pdf_extract::extract_text_from_mem(&bytes)
+                            .map_err(|e| SearchXyzError::ExtractionFailed {
+                                url: url.into(),
+                                reason: format!("Failed to extract PDF text: {e}"),
+                            })?
+                    } else {
+                        String::from_utf8_lossy(&bytes).into_owned()
+                    };
 
                     // ── Cache the response ──
                     {

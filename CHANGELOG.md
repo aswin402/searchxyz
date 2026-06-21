@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.0.7] - 2026-06-21
+
+### Added
+- **PDF Text Extraction**: Integrated the `pdf-extract` crate to natively extract text from digital PDF documents (`application/pdf`) downloaded during crawling.
+- **Bytes-oriented Response Handling**: Refactored the HTTP crawler body retrieval from string-only text to binary bytes.
+- **Page Extraction Pipeline Bypass**: Supports directly mapping extracted PDF plain text to `ExtractedContent` schemas, bypassing HTML noise stripping and conversion.
+- **Dynamic PDF Tests**: Added unit tests constructing a valid PDF programmatically using `lopdf` and verifying that the text is correctly extracted.
+
+---
+
 ## [0.0.6] - 2026-06-21
 
 ### Added

@@ -42,13 +42,32 @@ impl ExtractionPipeline {
         }
     }
 
-    /// Extract readable content from raw HTML.
+    /// Extract readable content from raw HTML or PDF plain text.
     pub fn extract(
         &self,
         url: &str,
-        html: &str,
+        body: &str,
+        content_type: Option<&str>,
     ) -> Result<ExtractedContent, SearchXyzError> {
-        let document = Html::parse_document(html);
+        if let Some(ct) = content_type {
+            if ct.contains("application/pdf") {
+                let title = url.split('/')
+                    .last()
+                    .unwrap_or("PDF Document")
+                    .trim();
+                let title = if title.is_empty() { "PDF Document" } else { title };
+
+                return Ok(ExtractedContent {
+                    url: url.into(),
+                    title: title.to_string(),
+                    description: "Extracted PDF Document Text".into(),
+                    content_markdown: body.to_string(),
+                    links: Vec::new(),
+                });
+            }
+        }
+
+        let document = Html::parse_document(body);
 
         // ── 1. Extract metadata ──
         let title = self.extract_title(&document);
@@ -234,5 +253,82 @@ impl ExtractionPipeline {
                 }
             })
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pdf_extraction_bypass() {
+        let config = ExtractorConfig::default();
+        let pipeline = ExtractionPipeline::new(config);
+        
+        let url = "https://example.com/document.pdf";
+        let body = "Hello World! This is extracted PDF text.";
+        let res = pipeline.extract(url, body, Some("application/pdf")).unwrap();
+        
+        assert_eq!(res.title, "document.pdf");
+        assert_eq!(res.content_markdown, body);
+        assert!(res.links.is_empty());
+    }
+
+    #[test]
+    fn test_pdf_parsing() {
+        use lopdf::{dictionary, Document, Object, Stream};
+        use lopdf::content::{Content, Operation};
+
+        let mut doc = Document::with_version("1.5");
+        let pages_id = doc.new_object_id();
+
+        let font_id = doc.add_object(dictionary! {
+            "Type" => "Font",
+            "Subtype" => "Type1",
+            "BaseFont" => "Courier",
+        });
+
+        let resources_id = doc.add_object(dictionary! {
+            "Font" => dictionary! { "F1" => font_id },
+        });
+
+        let content = Content {
+            operations: vec![
+                Operation::new("BT", vec![]),
+                Operation::new("Tf", vec!["F1".into(), 24.into()]),
+                Operation::new("Td", vec![100.into(), 500.into()]),
+                Operation::new("Tj", vec![Object::string_literal("Hello World")]),
+                Operation::new("ET", vec![]),
+            ],
+        };
+        let content_id = doc.add_object(Stream::new(dictionary! {}, content.encode().unwrap()));
+
+        let page_id = doc.add_object(dictionary! {
+            "Type" => "Page",
+            "Parent" => pages_id,
+            "Contents" => content_id,
+            "Resources" => resources_id,
+            "MediaBox" => vec![0.into(), 0.into(), 595.into(), 842.into()],
+        });
+
+        let pages = dictionary! {
+            "Type" => "Pages",
+            "Kids" => vec![page_id.into()],
+            "Count" => 1,
+        };
+        doc.objects.insert(pages_id, Object::Dictionary(pages));
+        let root_id = doc.add_object(dictionary! {
+            "Type" => "Catalog",
+            "Pages" => pages_id,
+        });
+        doc.trailer.set("Root", root_id);
+
+        let mut pdf_bytes = Vec::new();
+        doc.save_to(&mut pdf_bytes).unwrap();
+
+        let extracted = pdf_extract::extract_text_from_mem(&pdf_bytes);
+        assert!(extracted.is_ok());
+        let text = extracted.unwrap();
+        assert!(text.contains("Hello World"));
     }
 }

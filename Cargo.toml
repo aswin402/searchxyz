@@ -1,6 +1,6 @@
 [package]
 name = "searchxyz"
-version = "0.0.6"
+version = "0.0.7"
 edition = "2021"
 description = "MCP search server — search the web, crawl pages, and index content for AI agents"
 
@@ -53,6 +53,8 @@ chrono = { version = "0.4", features = ["serde"] }
 url = "2"
 dirs = "5.0"
 rand = "0.9"
+pdf-extract = "0.7"
+lopdf = "0.34"
 chromiumoxide = { version = "0.9.1", optional = true }
 
 [features]

@@ -87,7 +87,7 @@ impl SearchAndReadPipeline {
                 let fetch_result = crawler.fetch_url(&url, render_js).await?;
 
                 // Extract content.
-                let content = extractor.extract(&url, &fetch_result.body)?;
+                let content = extractor.extract(&url, &fetch_result.body, Some(&fetch_result.content_type))?;
 
                 Ok::<ExtractedContent, SearchXyzError>(content)
             });

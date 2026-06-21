@@ -54,7 +54,7 @@ impl Spider {
 
                 join_set.spawn(async move {
                     let fetch_result = crawler.fetch_url(&url, render_js).await?;
-                    let content = extractor.extract(&url, &fetch_result.body)?;
+                    let content = extractor.extract(&url, &fetch_result.body, Some(&fetch_result.content_type))?;
                     Ok::<ExtractedContent, SearchXyzError>(content)
                 });
             }
