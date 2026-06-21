@@ -6,14 +6,14 @@
 
 An extremely high-performance Model Context Protocol (MCP) search, crawl, and content-indexing server written in Rust.
 
-**Version:** 0.0.1
+**Version:** 0.0.2
 
 ---
 
 ## Features
 
 - **🚀 Native Performance**: Pure Rust binary. Fast startup, low CPU usage, `<30MB` idle RAM, and `<100MB` under load. No Python or Hono/Node.js dependencies.
-- **🔍 Multi-Backend Search Dispatcher**: Out-of-the-box support for DuckDuckGo Lite (completely free, keyless scraping) and optional Brave Web Search API as fallback.
+- **🔍 Multi-Backend Search Dispatcher**: Out-of-the-box support for DuckDuckGo Lite (completely free, keyless scraping), SearXNG (privacy-centric metasearch aggregator), and optional Brave Web Search API as fallback.
 - **📄 Content Extraction & Boilerplate Reduction**: Crawls target URLs using `reqwest` (with `rustls`), parses them via CSS selectors, strips out noisy elements (nav, footer, styling, ads, iframe), and outputs clean, token-efficient Markdown.
 - **⚡ Concurrent Crawls**: Crawls and extracts up to 5 top result pages concurrently using `tokio` asynchronous workers when executing `search_and_read`.
 - **💾 Local Recall Index**: Integrates a Tantivy full-text index database, acting as a search-recall memory layer for AI agents. Queries are returned in `<2ms` from the local database.

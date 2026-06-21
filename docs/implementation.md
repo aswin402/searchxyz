@@ -28,7 +28,7 @@
 ```toml
 [package]
 name = "searchxyz"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2024"
 description = "MCP search server — search the web, crawl pages, and index content for AI agents"
 license = "MIT"

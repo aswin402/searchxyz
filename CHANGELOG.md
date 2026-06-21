@@ -1,0 +1,30 @@
+# Changelog
+
+All notable changes to the **searchxyz** project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [0.0.2] - 2026-06-21
+
+### Added
+- **SearXNG Backend**: Implemented a native SearXng search backend enabling self-hostable, metasearch queries aggregating results from Google, Bing, Wikipedia, etc., without requiring credentials.
+- **SearXngConfig Options**: Integrated local configuration options for custom SearXNG instance URLs and target engine selections, including `SEARCHXYZ_SEARXNG_URL` environment overrides.
+
+### Changed
+- **DuckDuckGo Form Method**: Changed the DuckDuckGo Lite query requests from GET to form-urlencoded POST requests, aligning with the target portal's protocol and minimizing captcha detection.
+
+---
+
+## [0.0.1] - 2026-06-21
+
+### Added
+- **Initial MVP Release**: Scaffolded the project utilizing the `onpkg` CLI template.
+- **Search Engine Dispatcher**: Supports DuckDuckGo Lite scraping and Brave Search API interfaces with automatic rate-limit backoffs.
+- **Boilerplate Reduction Engine**: CSS selector-based stripping parser producing clean Markdown.
+- **Parallel Crawling Pipeline**: Asynchronous concurrent crawls via `tokio::task::JoinSet`.
+- **Tantivy Search Index**: Local search recall database with high-performance Tantivy full-text index queries.
+- **LRU Cache**: Cache layer with TTL validation to prevent duplicative crawls.
+- **MCP Stdio Server**: Fully integrated `rmcp` v1.7.0 macros and stdio server handler with tool JSON schemas.

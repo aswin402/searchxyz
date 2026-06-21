@@ -66,6 +66,7 @@
       "*.toml"
     ],
     "files": [
+      "CHANGELOG.md",
       "Cargo.toml",
       "README.md",
       "docs/core.md",
