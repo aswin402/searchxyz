@@ -118,19 +118,19 @@ impl SearchIndex {
         let now = tantivy::DateTime::from_timestamp_secs(Utc::now().timestamp());
 
         let chunks = chunk_content(&content.content_markdown, 1500, 200);
-
-        let texts_to_embed: Vec<String> = if chunks.len() > 1 {
-            chunks
-                .iter()
-                .map(|chunk| {
-                    let text = format!("passage: {}\n\n{}", content.title, chunk);
-                    text.chars().take(4000).collect()
-                })
-                .collect()
+        let chunks = if chunks.is_empty() {
+            vec![content.content_markdown.clone()]
         } else {
-            let text = format!("passage: {}\n\n{}", content.title, content.content_markdown);
-            vec![text.chars().take(4000).collect()]
+            chunks
         };
+
+        let texts_to_embed: Vec<String> = chunks
+            .iter()
+            .map(|chunk| {
+                let text = format!("passage: {}\n\n{}", content.title, chunk);
+                text.chars().take(4000).collect()
+            })
+            .collect();
 
         let embeddings = {
             let mut model = self.embedding_model.lock().map_err(|e| {
@@ -170,11 +170,7 @@ impl SearchIndex {
                 ))?;
             }
         } else {
-            let chunk_content = if let Some(first) = chunks.into_iter().next() {
-                first
-            } else {
-                content.content_markdown.clone()
-            };
+            let chunk_content = chunks.into_iter().next().unwrap();
             let embedding = embeddings
                 .into_iter()
                 .next()
@@ -832,5 +828,39 @@ mod tests {
         let results = index.search("Prefix", 10).unwrap();
         assert_eq!(results.len(), 0);
         let _ = std::fs::remove_dir_all(&test_dir);
+    }
+
+    #[test]
+    fn test_sliding_window_fallback() {
+        let content: String = (0..3500).map(|i| (b'a' + (i % 26) as u8) as char).collect();
+        let chunks = chunk_content(&content, 1500, 200);
+        assert_eq!(chunks.len(), 3);
+        assert_eq!(chunks[0].chars().count(), 1500);
+        assert_eq!(chunks[1].chars().count(), 1500);
+        assert_eq!(chunks[2].chars().count(), 900);
+
+        let chars0: Vec<char> = chunks[0].chars().collect();
+        let chars1: Vec<char> = chunks[1].chars().collect();
+        let chars2: Vec<char> = chunks[2].chars().collect();
+
+        // Verify overlap
+        assert_eq!(&chars0[1300..1500], &chars1[0..200]);
+        assert_eq!(&chars1[1300..1500], &chars2[0..200]);
+    }
+
+    #[test]
+    fn test_section_splitting_large() {
+        let section_text = "b".repeat(2000);
+        let content = format!("# Header\n{}", section_text);
+        let chunks = chunk_content(&content, 1500, 200);
+
+        assert_eq!(chunks.len(), 2);
+        assert_eq!(chunks[0].chars().count(), 1500);
+        assert_eq!(chunks[1].chars().count(), 709); // 9 bytes for "# Header\n" + 2000 bytes - 1300 step = 709 remaining
+        assert!(chunks[0].starts_with("# Header"));
+
+        let chars0: Vec<char> = chunks[0].chars().collect();
+        let chars1: Vec<char> = chunks[1].chars().collect();
+        assert_eq!(&chars0[1300..1500], &chars1[0..200]);
     }
 }
