@@ -84,11 +84,32 @@ pub struct ExtractorConfig {
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(default)]
+pub struct EmbeddingConfig {
+    pub provider: String, // "local", "openai", "gemini", "cohere"
+    pub model: String,
+    pub api_key: Option<String>,
+    pub api_url: Option<String>,
+}
+
+impl Default for EmbeddingConfig {
+    fn default() -> Self {
+        Self {
+            provider: "local".to_string(),
+            model: "bge-small-en-v1.5".to_string(),
+            api_key: None,
+            api_url: None,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(default)]
 pub struct IndexConfig {
     /// Directory to store the Tantivy index.
     pub path: PathBuf,
     /// IndexWriter heap size in bytes.
     pub writer_heap_bytes: usize,
+    pub embedding: EmbeddingConfig,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -201,6 +222,7 @@ impl Default for IndexConfig {
                 .join("searchxyz")
                 .join("index"),
             writer_heap_bytes: 50 * 1024 * 1024, // 50 MB
+            embedding: EmbeddingConfig::default(),
         }
     }
 }
@@ -263,6 +285,33 @@ impl Config {
         }
         if let Ok(path) = std::env::var("SEARCHXYZ_INDEX_PATH") {
             self.index.path = PathBuf::from(path);
+        }
+        if let Ok(prov) = std::env::var("SEARCHXYZ_EMBEDDING_PROVIDER") {
+            self.index.embedding.provider = prov;
+        }
+        if let Ok(model) = std::env::var("SEARCHXYZ_EMBEDDING_MODEL") {
+            self.index.embedding.model = model;
+        }
+        if let Ok(key) = std::env::var("SEARCHXYZ_EMBEDDING_API_KEY") {
+            self.index.embedding.api_key = Some(key);
+        }
+        if let Ok(url) = std::env::var("SEARCHXYZ_EMBEDDING_URL") {
+            self.index.embedding.api_url = Some(url);
+        }
+        if let Ok(key) = std::env::var("SEARCHXYZ_OPENAI_API_KEY") {
+            if self.index.embedding.provider == "openai" {
+                self.index.embedding.api_key = Some(key);
+            }
+        }
+        if let Ok(key) = std::env::var("SEARCHXYZ_GEMINI_API_KEY") {
+            if self.index.embedding.provider == "gemini" {
+                self.index.embedding.api_key = Some(key);
+            }
+        }
+        if let Ok(key) = std::env::var("SEARCHXYZ_COHERE_API_KEY") {
+            if self.index.embedding.provider == "cohere" {
+                self.index.embedding.api_key = Some(key);
+            }
         }
         if let Ok(val) = std::env::var("SEARCHXYZ_CACHE_MAX_ENTRIES") {
             if let Ok(n) = val.parse() {
@@ -425,5 +474,29 @@ mod tests {
         std::env::remove_var("SEARCHXYZ_PROXY_ENABLED");
         std::env::remove_var("SEARCHXYZ_PROXY_URLS");
         std::env::remove_var("SEARCHXYZ_CACHE_PATH");
+    }
+
+    #[test]
+    fn test_embedding_config_loading_and_overrides() {
+        std::env::set_var("SEARCHXYZ_EMBEDDING_PROVIDER", "openai");
+        std::env::set_var("SEARCHXYZ_EMBEDDING_MODEL", "custom-model");
+        std::env::set_var("SEARCHXYZ_EMBEDDING_API_KEY", "custom-key");
+        std::env::set_var("SEARCHXYZ_EMBEDDING_URL", "http://custom-url/v1");
+        std::env::set_var("SEARCHXYZ_OPENAI_API_KEY", "openai-override-key");
+
+        let mut config = Config::default();
+        config.apply_env_overrides();
+
+        assert_eq!(config.index.embedding.provider, "openai");
+        assert_eq!(config.index.embedding.model, "custom-model");
+        assert_eq!(config.index.embedding.api_key, Some("openai-override-key".to_string()));
+        assert_eq!(config.index.embedding.api_url, Some("http://custom-url/v1".to_string()));
+
+        // Clean up
+        std::env::remove_var("SEARCHXYZ_EMBEDDING_PROVIDER");
+        std::env::remove_var("SEARCHXYZ_EMBEDDING_MODEL");
+        std::env::remove_var("SEARCHXYZ_EMBEDDING_API_KEY");
+        std::env::remove_var("SEARCHXYZ_EMBEDDING_URL");
+        std::env::remove_var("SEARCHXYZ_OPENAI_API_KEY");
     }
 }

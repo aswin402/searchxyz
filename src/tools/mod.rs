@@ -409,7 +409,7 @@ impl SearchXyzServer {
         let max = req.0.max_results.unwrap_or(5);
         let use_semantic = req.0.semantic.unwrap_or(true);
         let results = if use_semantic {
-            self.index.search_semantic(&req.0.query, max)?
+            self.index.search_semantic(&req.0.query, max).await?
         } else {
             self.index.search(&req.0.query, max)?
         };
@@ -912,6 +912,7 @@ mod tests {
         let index_config = IndexConfig {
             path: test_dir.clone(),
             writer_heap_bytes: 15_000_000,
+            embedding: Default::default(),
         };
 
         let index = SearchIndex::open(&index_config).unwrap();
@@ -983,6 +984,7 @@ mod tests {
         let clean_index_config = IndexConfig {
             path: clean_dir.clone(),
             writer_heap_bytes: 15_000_000,
+            embedding: Default::default(),
         };
         let clean_index = SearchIndex::open(&clean_index_config).unwrap();
         let clean_graph = Arc::new(Mutex::new(KnowledgeGraph::new()));
@@ -1040,6 +1042,7 @@ mod tests {
         let index_config = IndexConfig {
             path: test_dir.clone(),
             writer_heap_bytes: 15_000_000,
+            embedding: Default::default(),
         };
 
         let index = SearchIndex::open(&index_config).unwrap();
