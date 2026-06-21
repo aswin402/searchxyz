@@ -230,12 +230,13 @@ async fn auth_middleware(
     req: axum::extract::Request,
     next: axum::middleware::Next,
 ) -> Result<axum::response::Response, axum::http::StatusCode> {
-    let auth_header = req.headers()
+    let auth_header = req
+        .headers()
         .get(axum::http::header::AUTHORIZATION)
         .and_then(|h| h.to_str().ok());
-    
+
     if let Some(auth) = auth_header {
-        if auth.starts_with("Bearer ") && &auth[7..] == expected_token {
+        if auth.starts_with("Bearer ") && auth[7..] == expected_token {
             return Ok(next.run(req).await);
         }
     }
@@ -255,12 +256,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_auth_middleware_blocked() {
-        let app = Router::new()
-            .route("/", get(|| async { "ok" }))
-            .layer(axum::middleware::from_fn_with_state(
-                "secret-token".to_string(),
-                auth_middleware,
-            ));
+        let app = Router::new().route("/", get(|| async { "ok" })).layer(
+            axum::middleware::from_fn_with_state("secret-token".to_string(), auth_middleware),
+        );
 
         // 1. Missing header (should fail/401, but will return 200 in dummy)
         let response = app
@@ -301,12 +299,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_auth_middleware_allowed() {
-        let app = Router::new()
-            .route("/", get(|| async { "ok" }))
-            .layer(axum::middleware::from_fn_with_state(
-                "secret-token".to_string(),
-                auth_middleware,
-            ));
+        let app = Router::new().route("/", get(|| async { "ok" })).layer(
+            axum::middleware::from_fn_with_state("secret-token".to_string(), auth_middleware),
+        );
 
         let response = app
             .oneshot(
@@ -321,4 +316,3 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
     }
 }
-

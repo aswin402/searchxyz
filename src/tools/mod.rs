@@ -173,7 +173,9 @@ pub struct ImportResearchRequest {
 
 #[derive(Deserialize, JsonSchema)]
 pub struct DeleteSourceRequest {
-    #[schemars(description = "The source URL to delete from the search index and knowledge graph.")]
+    #[schemars(
+        description = "The source URL to delete from the search index and knowledge graph."
+    )]
     pub url: String,
 }
 
@@ -853,16 +855,18 @@ impl SearchXyzServer {
         Ok(format!("Successfully deleted source `{}`", req.0.url))
     }
 
-    #[tool(
-        description = "Wipe all documents and graph relationships from the local index."
-    )]
+    #[tool(description = "Wipe all documents and graph relationships from the local index.")]
     async fn clear_index(
         &self,
         req: Parameters<ClearIndexRequest>,
     ) -> Result<String, rmcp::ErrorData> {
         let mut writer = self.index.writer.lock().await;
-        writer.delete_all_documents().map_err(crate::error::SearchXyzError::from)?;
-        writer.commit().map_err(crate::error::SearchXyzError::from)?;
+        writer
+            .delete_all_documents()
+            .map_err(crate::error::SearchXyzError::from)?;
+        writer
+            .commit()
+            .map_err(crate::error::SearchXyzError::from)?;
         {
             let mut g = self.graph.lock().await;
             g.clear();
@@ -1035,8 +1039,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_db_maintenance_tools() {
-        let test_dir =
-            std::env::temp_dir().join(format!("searchxyz_test_tools_maint_{}", rand::random::<u64>()));
+        let test_dir = std::env::temp_dir().join(format!(
+            "searchxyz_test_tools_maint_{}",
+            rand::random::<u64>()
+        ));
         let _ = std::fs::remove_dir_all(&test_dir);
 
         let index_config = IndexConfig {

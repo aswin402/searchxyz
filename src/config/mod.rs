@@ -495,8 +495,14 @@ mod tests {
 
         assert_eq!(config.index.embedding.provider, "openai");
         assert_eq!(config.index.embedding.model, "custom-model");
-        assert_eq!(config.index.embedding.api_key, Some("openai-override-key".to_string()));
-        assert_eq!(config.index.embedding.api_url, Some("http://custom-url/v1".to_string()));
+        assert_eq!(
+            config.index.embedding.api_key,
+            Some("openai-override-key".to_string())
+        );
+        assert_eq!(
+            config.index.embedding.api_url,
+            Some("http://custom-url/v1".to_string())
+        );
 
         // Clean up
         std::env::remove_var("SEARCHXYZ_EMBEDDING_PROVIDER");
@@ -513,7 +519,10 @@ mod tests {
         let mut config = Config::default();
         config.apply_env_overrides();
 
-        assert_eq!(config.server.auth_token, Some("my-secret-token".to_string()));
+        assert_eq!(
+            config.server.auth_token,
+            Some("my-secret-token".to_string())
+        );
 
         // Clean up
         std::env::remove_var("SEARCHXYZ_API_KEY");

@@ -14,10 +14,25 @@ use crate::error::SearchXyzError;
 use crate::extractor::ExtractedContent;
 
 pub enum EmbeddingGenerator {
-    Local(std::sync::Mutex<TextEmbedding>),
-    OpenAi { client: reqwest::Client, model: String, api_key: String, api_url: String },
-    Gemini { client: reqwest::Client, model: String, api_key: String, api_url: String },
-    Cohere { client: reqwest::Client, model: String, api_key: String, api_url: String },
+    Local(Box<std::sync::Mutex<TextEmbedding>>),
+    OpenAi {
+        client: reqwest::Client,
+        model: String,
+        api_key: String,
+        api_url: String,
+    },
+    Gemini {
+        client: reqwest::Client,
+        model: String,
+        api_key: String,
+        api_url: String,
+    },
+    Cohere {
+        client: reqwest::Client,
+        model: String,
+        api_key: String,
+        api_url: String,
+    },
 }
 
 impl std::fmt::Debug for EmbeddingGenerator {
@@ -53,7 +68,10 @@ impl EmbeddingGenerator {
                     "bge-base-en-v1.5" => EmbeddingModel::BGEBaseENV15,
                     "all-minilm-l6-v2" => EmbeddingModel::AllMiniLML6V2,
                     _ => {
-                        tracing::warn!("Unknown local model '{}', defaulting to bge-small-en-v1.5", config.model);
+                        tracing::warn!(
+                            "Unknown local model '{}', defaulting to bge-small-en-v1.5",
+                            config.model
+                        );
                         EmbeddingModel::BGESmallENV15
                     }
                 };
@@ -63,13 +81,20 @@ impl EmbeddingGenerator {
                 .map_err(|e| {
                     SearchXyzError::IndexError(format!("Failed to initialize embedding model: {e}"))
                 })?;
-                Ok(Self::Local(std::sync::Mutex::new(embedding_model)))
+                Ok(Self::Local(Box::new(std::sync::Mutex::new(
+                    embedding_model,
+                ))))
             }
             "openai" => {
                 let api_key = config.api_key.clone().ok_or_else(|| {
-                    SearchXyzError::ConfigError("API key is required for openai embedding provider".to_string())
+                    SearchXyzError::ConfigError(
+                        "API key is required for openai embedding provider".to_string(),
+                    )
                 })?;
-                let api_url = config.api_url.clone().unwrap_or_else(|| "https://api.openai.com/v1/embeddings".to_string());
+                let api_url = config
+                    .api_url
+                    .clone()
+                    .unwrap_or_else(|| "https://api.openai.com/v1/embeddings".to_string());
                 Ok(Self::OpenAi {
                     client,
                     model: config.model.clone(),
@@ -79,9 +104,14 @@ impl EmbeddingGenerator {
             }
             "gemini" => {
                 let api_key = config.api_key.clone().ok_or_else(|| {
-                    SearchXyzError::ConfigError("API key is required for gemini embedding provider".to_string())
+                    SearchXyzError::ConfigError(
+                        "API key is required for gemini embedding provider".to_string(),
+                    )
                 })?;
-                let api_url = config.api_url.clone().unwrap_or_else(|| "https://generativelanguage.googleapis.com".to_string());
+                let api_url = config
+                    .api_url
+                    .clone()
+                    .unwrap_or_else(|| "https://generativelanguage.googleapis.com".to_string());
                 Ok(Self::Gemini {
                     client,
                     model: config.model.clone(),
@@ -91,9 +121,14 @@ impl EmbeddingGenerator {
             }
             "cohere" => {
                 let api_key = config.api_key.clone().ok_or_else(|| {
-                    SearchXyzError::ConfigError("API key is required for cohere embedding provider".to_string())
+                    SearchXyzError::ConfigError(
+                        "API key is required for cohere embedding provider".to_string(),
+                    )
                 })?;
-                let api_url = config.api_url.clone().unwrap_or_else(|| "https://api.cohere.com/v1/embed".to_string());
+                let api_url = config
+                    .api_url
+                    .clone()
+                    .unwrap_or_else(|| "https://api.cohere.com/v1/embed".to_string());
                 Ok(Self::Cohere {
                     client,
                     model: config.model.clone(),
@@ -132,7 +167,12 @@ impl EmbeddingGenerator {
                     SearchXyzError::IndexError(format!("Failed to generate local embeddings: {e}"))
                 })
             }
-            Self::OpenAi { client, model, api_key, api_url } => {
+            Self::OpenAi {
+                client,
+                model,
+                api_key,
+                api_url,
+            } => {
                 let body = serde_json::json!({
                     "input": texts,
                     "model": model,
@@ -168,7 +208,12 @@ impl EmbeddingGenerator {
                 let embeddings = parsed.data.into_iter().map(|d| d.embedding).collect();
                 Ok(embeddings)
             }
-            Self::Gemini { client, model, api_key, api_url } => {
+            Self::Gemini {
+                client,
+                model,
+                api_key,
+                api_url,
+            } => {
                 let formatted_model = if model.starts_with("models/") {
                     model.clone()
                 } else {
@@ -229,8 +274,17 @@ impl EmbeddingGenerator {
                 let embeddings = parsed.embeddings.into_iter().map(|e| e.values).collect();
                 Ok(embeddings)
             }
-            Self::Cohere { client, model, api_key, api_url } => {
-                let input_type = if is_query { "search_query" } else { "search_document" };
+            Self::Cohere {
+                client,
+                model,
+                api_key,
+                api_url,
+            } => {
+                let input_type = if is_query {
+                    "search_query"
+                } else {
+                    "search_document"
+                };
                 let body = serde_json::json!({
                     "texts": texts,
                     "model": model,
@@ -446,7 +500,10 @@ impl SearchIndex {
         query_str: &str,
         max_results: usize,
     ) -> Result<Vec<IndexSearchResult>, SearchXyzError> {
-        let query_embeddings = self.embedding_generator.embed(vec![query_str], true).await?;
+        let query_embeddings = self
+            .embedding_generator
+            .embed(vec![query_str], true)
+            .await?;
         let query_embedding = query_embeddings
             .into_iter()
             .next()
@@ -926,7 +983,10 @@ mod tests {
         assert!(!sem_results.is_empty());
         assert_eq!(sem_results[0].title, "Quantum Computing Foundations");
 
-        let sem_results_recipe = index.search_semantic("culinary dough recipe", 5).await.unwrap();
+        let sem_results_recipe = index
+            .search_semantic("culinary dough recipe", 5)
+            .await
+            .unwrap();
         assert!(!sem_results_recipe.is_empty());
         assert_eq!(sem_results_recipe[0].title, "How to Bake Bread");
 
@@ -1122,23 +1182,27 @@ mod tests {
                                 "data": [
                                     { "embedding": vec![0.1f32; 1536] }
                                 ]
-                            }).to_string()
+                            })
+                            .to_string()
                         } else if req_str.contains("batchEmbedContents") {
                             serde_json::json!({
                                 "embeddings": [
                                     { "values": vec![0.2f32; 768] }
                                 ]
-                            }).to_string()
+                            })
+                            .to_string()
                         } else if req_str.contains("/v1/embed") {
                             serde_json::json!({
                                 "embeddings": [
                                     vec![0.3f32; 1024]
                                 ]
-                            }).to_string()
+                            })
+                            .to_string()
                         } else {
                             serde_json::json!({
                                 "error": "unknown endpoint"
-                            }).to_string()
+                            })
+                            .to_string()
                         };
 
                         let response = format!(

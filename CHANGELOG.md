@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.0.17] - 2026-06-21
+
+### Added
+- **Incremental Git Codebase Ingestion**: Implemented a persistent cloner in `clone_and_index_repo` that stores clones in `~/.searchxyz/repos/` directories keyed by repository owner, name, and branch. If the repository was previously cloned, it performs `git fetch` and `git reset --hard`, gets the modified/added/deleted files list using `git diff --name-status`, and processes only the changes (removing deleted files from search index and knowledge graph, and updating modified/added files).
+
 ## [0.0.16] - 2026-06-21
 
 ### Added
