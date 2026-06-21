@@ -19,7 +19,7 @@ use config::Config;
 use crawler::Crawler;
 use extractor::ExtractionPipeline;
 use index::SearchIndex;
-use search::{SearchDispatcher, brave::BraveBackend, duckduckgo::DuckDuckGoBackend, searxng::SearXngBackend};
+use search::{SearchDispatcher, brave::BraveBackend, duckduckgo::DuckDuckGoBackend, searxng::SearXngBackend, google::GoogleBackend, bing::BingBackend};
 use tools::SearchXyzServer;
 
 use rmcp::{ServiceExt, transport::stdio};
@@ -81,6 +81,16 @@ async fn main() -> anyhow::Result<()> {
         match name.as_str() {
             "duckduckgo" => {
                 backends.push(Box::new(DuckDuckGoBackend::new(
+                    http_client.clone(),
+                )));
+            }
+            "google" => {
+                backends.push(Box::new(GoogleBackend::new(
+                    http_client.clone(),
+                )));
+            }
+            "bing" => {
+                backends.push(Box::new(BingBackend::new(
                     http_client.clone(),
                 )));
             }

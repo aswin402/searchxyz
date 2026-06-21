@@ -27,6 +27,8 @@ pub struct SearchWebRequest {
 pub struct ReadUrlRequest {
     #[schemars(description = "The full URL to fetch (must start with http:// or https://)")]
     pub url: String,
+    #[schemars(description = "Crawl depth for recursive scoping. Defaults to 1 (only target URL). Max is 3.")]
+    pub depth: Option<usize>,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -125,13 +127,44 @@ impl SearchXyzServer {
             return Err(rmcp::ErrorData::invalid_params("URL must start with http:// or https://", None));
         }
 
-        let fetch_result = self.crawler.fetch_url(url).await?;
-        let content = self.extractor.extract(url, &fetch_result.body)?;
-        let text = format!(
-            "# {}\n\n**Source:** {}\n\n---\n\n{}",
-            content.title, content.url, content.content_markdown
-        );
-        Ok(text)
+        let depth = req.0.depth.unwrap_or(1).min(3);
+
+        if depth > 1 {
+            let spider = crate::crawler::spider::Spider::new(self.crawler.clone(), self.extractor.clone());
+            let crawled_pages = spider.crawl(url, depth).await?;
+            
+            // Index successful crawled pages
+            for page in &crawled_pages {
+                if let Err(e) = self.index.add_document(page, "spider").await {
+                    tracing::warn!(url = %page.url, error = %e, "Failed to index page from spider (non-fatal)");
+                }
+            }
+
+            let text = crawled_pages
+                .iter()
+                .map(|p| {
+                    format!(
+                        "---\n## {}\n**Source:** {}\n\n{}\n\n",
+                        p.title, p.url, p.content_markdown
+                    )
+                })
+                .collect::<String>();
+            Ok(text)
+        } else {
+            let fetch_result = self.crawler.fetch_url(url).await?;
+            let content = self.extractor.extract(url, &fetch_result.body)?;
+            
+            // Index the single crawled page too!
+            if let Err(e) = self.index.add_document(&content, "read_url").await {
+                tracing::warn!(url = %content.url, error = %e, "Failed to index page from read_url (non-fatal)");
+            }
+
+            let text = format!(
+                "# {}\n\n**Source:** {}\n\n---\n\n{}",
+                content.title, content.url, content.content_markdown
+            );
+            Ok(text)
+        }
     }
 
     #[tool(description = "Search the web AND read the top results. Returns full page content for each result. Best for research tasks.")]
@@ -188,6 +221,7 @@ impl SearchXyzServer {
             title: req.0.title.clone(),
             description: String::new(),
             content_markdown: req.0.content.clone(),
+            links: Vec::new(),
         };
 
         self.index.add_document(&extracted, "manual").await?;

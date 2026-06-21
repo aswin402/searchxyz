@@ -1,6 +1,8 @@
 pub mod brave;
 pub mod duckduckgo;
 pub mod searxng;
+pub mod google;
+pub mod bing;
 
 use async_trait::async_trait;
 use crate::error::SearchXyzError;

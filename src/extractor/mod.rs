@@ -10,6 +10,7 @@ pub struct ExtractedContent {
     pub title: String,
     pub description: String,
     pub content_markdown: String,
+    pub links: Vec<String>,
 }
 
 /// Pipeline that converts raw HTML into clean markdown text.
@@ -73,11 +74,15 @@ impl ExtractionPipeline {
             });
         }
 
+        // ── 6. Extract links ──
+        let links = self.extract_links(&document, url);
+
         Ok(ExtractedContent {
             url: url.into(),
             title,
             description,
             content_markdown: markdown,
+            links,
         })
     }
 
@@ -213,5 +218,21 @@ impl ExtractionPipeline {
         }
 
         result.trim().to_string()
+    }
+
+    fn extract_links(&self, doc: &Html, base_url: &str) -> Vec<String> {
+        let sel = Selector::parse("a[href]").unwrap();
+        let base = url::Url::parse(base_url).ok();
+        
+        doc.select(&sel)
+            .filter_map(|el| {
+                let href = el.value().attr("href")?;
+                if let Some(ref base_parsed) = base {
+                    base_parsed.join(href).ok().map(|u| u.to_string())
+                } else {
+                    url::Url::parse(href).ok().map(|u| u.to_string())
+                }
+            })
+            .collect()
     }
 }

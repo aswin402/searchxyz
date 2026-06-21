@@ -1,3 +1,6 @@
+pub mod fingerprint;
+pub mod spider;
+
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
@@ -95,9 +98,11 @@ impl Crawler {
         loop {
             attempt += 1;
 
+            let headers = fingerprint::HeaderGenerator::random_headers();
             let resp = self
                 .client
                 .get(url)
+                .headers(headers)
                 .send()
                 .await;
 

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.0.3] - 2026-06-21
+
+### Added
+- **Evasion & Header Randomization**: Thread-safe dynamic desktop/mobile User-Agent and Accept header rotation (inspired by Crawlee) to bypass anti-scraping defenses on public web endpoints.
+- **Scoped Recursive Spidering**: Recursive link queueing using async Tokio task joins, executing parallel crawling up to a configurable max depth within the same starting domain scope (inspired by Katana).
+- **Native Search Scrapers**: Added native, keyless scraper backends for Google and Bing search results pages directly inside the Rust engine (inspired by Websurfx and searxng-mcp).
+- **Expanded Search Defaults**: Google and Bing are now registered in the default search dispatcher backends path, allowing query fallbacks without requiring API keys.
+
+---
+
 ## [0.0.2] - 2026-06-21
 
 ### Added

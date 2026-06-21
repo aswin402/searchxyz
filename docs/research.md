@@ -11,7 +11,7 @@
 1. [MCP Protocol & Rust SDK](#1-mcp-protocol--rust-sdk)
 2. [Rust Crates Ecosystem](#2-rust-crates-ecosystem)
 3. [DuckDuckGo Integration](#3-duckduckgo-integration)
-4. [Competitor Deep Dives](#4-competitor-deep-dives)
+4. [Competitor Deep Dives & Inspirations](#4-competitor-deep-dives)
 5. [Search API Landscape (2026)](#5-search-api-landscape-2026)
 6. [Performance Research](#6-performance-research)
 7. [Error Handling Best Practices](#7-error-handling-best-practices)
@@ -392,6 +392,40 @@ URL → Render → Extract → Convert → Output
 - Their success proves there's demand for AI-native search tools
 - searchxyz differentiates by being **local-first, open-source, and free** vs. Tavily's API-based model
 - We can study their API response format for inspiration on our tool output schema
+
+### 4.5 Crawlee — Bot Evasion & Header Fingerprinting
+
+**What it is:** A web scraping and browser automation library by Apify, designed to mimic human browsing patterns to bypass anti-scraping protections.
+
+**Key Characteristics & Mechanisms:**
+- **Fingerprint Generation:** Dynamically generates authentic desktop and mobile HTTP headers (User-Agent, Accept, Accept-Language, Sec-Ch-Ua) matching specific browser engines (Chrome, Firefox, Safari).
+- **Session Management:** Simulates realistic cookies, request intervals, and TCP/TLS handshakes to make requests indistinguishable from natural browser traffic.
+
+**Relevance to searchxyz:**
+- Inspired Phase 1 of our scraper evasion. We integrated randomized browser headers using a thread-safe static header generator (`src/crawler/fingerprint.rs`).
+- Allows searchxyz to run keyless scrapers (like DuckDuckGo Lite, Google, and Bing) directly from arbitrary server IPs without immediately triggering CAPTCHAs or 403 Forbidden errors.
+
+### 4.6 Katana — Scoped Recursive Spidering
+
+**What it is:** A next-generation crawling and web spidering tool by ProjectDiscovery, written in Go, built for security research and endpoint discovery.
+
+**Key Characteristics & Mechanisms:**
+- **Scope Checking:** Validates links on parsed pages to ensure they remain inside allowed domains or subdomains, preventing the crawler from wandering off into external sites.
+- **Recursive Queueing:** Parses all anchor elements (`<a>`) on an HTML page, filters them using scope logic, and queues child links for multi-threaded async crawling up to a configured depth.
+
+**Relevance to searchxyz:**
+- Inspired Phase 2 of our crawler. We built recursive scoped spidering (`src/crawler/spider.rs`) using Tokio's asynchronous `JoinSet` workers to parse HTML links dynamically and crawl up to a configured depth (default max depth = 3) restricted to the starting domain.
+
+### 4.7 Websurfx & searxng-mcp — Native HTML Search Scrapers
+
+**What it is:** `Websurfx` is a privacy-focused meta-search engine written in Rust that scrapes upstream search engines. `searxng-mcp` is an MCP server wrapping SearXNG JSON queries.
+
+**Key Characteristics & Mechanisms:**
+- **Zero API Key Requirement:** Scrapes the public HTML search results of engines (Google, Bing) directly inside the Rust binary, bypassing the need for commercial developer API keys.
+- **HTML DOM Selection:** Uses CSS selectors and DOM traversing to extract structured search result arrays (title, URL, snippet) from engine result pages.
+
+**Relevance to searchxyz:**
+- Inspired Phase 3 of our server. We built native scraping engines for Google (`src/search/google.rs`) and Bing (`src/search/bing.rs`) directly in Rust, avoiding external Python/Docker/Node dependencies. We use combined CSS selectors (`div.g, div.MjjYud` for Google, `li.b_algo` for Bing) to parse result titles, URLs, and snippets in document order.
 
 ---
 

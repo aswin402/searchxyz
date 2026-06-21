@@ -1,6 +1,6 @@
 [package]
 name = "searchxyz"
-version = "0.0.2"
+version = "0.0.3"
 edition = "2021"
 description = "MCP search server — search the web, crawl pages, and index content for AI agents"
 
@@ -52,6 +52,7 @@ chrono = { version = "0.4", features = ["serde"] }
 # ── URL handling ──
 url = "2"
 dirs = "5.0"
+rand = "0.9"
 
 [workspace]
 # Empty workspace table to build independently of parent workspace when run directly.

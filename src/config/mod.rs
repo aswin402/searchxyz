@@ -128,7 +128,12 @@ impl Default for ServerConfig {
 impl Default for SearchConfig {
     fn default() -> Self {
         Self {
-            backends: vec!["duckduckgo".into(), "brave".into()],
+            backends: vec![
+                "duckduckgo".into(),
+                "google".into(),
+                "bing".into(),
+                "brave".into(),
+            ],
             max_results: 10,
         }
     }
