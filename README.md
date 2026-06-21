@@ -6,7 +6,7 @@
 
 An extremely high-performance Model Context Protocol (MCP) search, crawl, and content-indexing server written in Rust.
 
-**Version:** 0.0.15
+**Version:** 0.0.16
 
 ---
 
@@ -43,6 +43,12 @@ An extremely high-performance Model Context Protocol (MCP) search, crawl, and co
 6. `read_github_repo`
    - **Description**: Clone and recursively index a GitHub repository, parsing its files and README into the search index/knowledge graph and returning a summary.
    - **Parameters**: `repo_url: String`, `branch: Option<String>`, `include_extensions: Option<Vec<String>>`, `exclude_paths: Option<Vec<String>>`
+7. `export_research`
+   - **Description**: Export indexed documents and knowledge graph relationships connected to a research topic into a portable JSON bundle.
+   - **Parameters**: `query: Option<String>`, `limit: Option<usize>`
+8. `import_research`
+   - **Description**: Import a research bundle payload into the local index and knowledge graph.
+   - **Parameters**: `payload: String`
 
 ---
 

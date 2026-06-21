@@ -2,20 +2,20 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, schemars::JsonSchema)]
 pub struct Node {
     pub name: String,
     pub entity_type: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, schemars::JsonSchema)]
 pub struct Edge {
     pub source: String,
     pub target: String,
     pub relationship_type: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, schemars::JsonSchema)]
 pub struct KnowledgeGraph {
     pub nodes: HashMap<String, Node>,
     pub edges: Vec<Edge>,

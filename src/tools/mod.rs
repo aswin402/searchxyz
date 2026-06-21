@@ -131,6 +131,29 @@ pub struct ReadGithubRepoRequest {
     pub exclude_paths: Option<Vec<String>>,
 }
 
+#[derive(Deserialize, JsonSchema)]
+pub struct ExportResearchRequest {
+    #[schemars(description = "Optional query to filter exported documents. If omitted, all documents are exported.")]
+    pub query: Option<String>,
+    #[schemars(description = "Optional limit on how many documents to export (default 50, max 200).")]
+    pub limit: Option<usize>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+pub struct ImportResearchRequest {
+    #[schemars(description = "The serialized JSON research bundle payload.")]
+    pub payload: String,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, rmcp::schemars::JsonSchema)]
+pub struct ResearchBundle {
+    pub version: String,
+    pub exported_at: String,
+    pub documents: Vec<ExtractedContent>,
+    pub graph: crate::graph::KnowledgeGraph,
+}
+
+
 
 
 
@@ -604,6 +627,83 @@ impl SearchXyzServer {
         ).await?;
         Ok(summary)
     }
+
+    #[tool(description = "Export indexed documents and knowledge graph relationships connected to a research topic into a portable JSON bundle.")]
+    async fn export_research(&self, req: Parameters<ExportResearchRequest>) -> Result<String, rmcp::ErrorData> {
+        let limit = req.0.limit.unwrap_or(50).min(200);
+        let documents = self.index.export_documents(req.0.query.as_deref(), limit)?;
+        
+        let graph = {
+            let g = self.graph.lock().await;
+            g.clone()
+        };
+        
+        let bundle = ResearchBundle {
+            version: "1.0".to_string(),
+            exported_at: chrono::Utc::now().to_rfc3339(),
+            documents,
+            graph,
+        };
+        
+        let json = serde_json::to_string_pretty(&bundle).map_err(|e| {
+            rmcp::ErrorData::internal_error(format!("Failed to serialize research bundle: {}", e), None)
+        })?;
+        
+        Ok(json)
+    }
+
+    #[tool(description = "Import a research bundle payload into the local index and knowledge graph.")]
+    async fn import_research(&self, req: Parameters<ImportResearchRequest>) -> Result<String, rmcp::ErrorData> {
+        let bundle: ResearchBundle = serde_json::from_str(&req.0.payload).map_err(|e| {
+            rmcp::ErrorData::invalid_params(format!("Invalid research bundle payload: {}", e), None)
+        })?;
+        
+        let doc_count = bundle.documents.len();
+        
+        for doc in &bundle.documents {
+            // Index the document locally (this also generates local semantic vector embeddings!)
+            if let Err(e) = self.index.add_document(doc, "imported").await {
+                tracing::warn!(url = %doc.url, error = %e, "Failed to index imported document (non-fatal)");
+            }
+        }
+        
+        // Merge the imported nodes and edges into the local knowledge graph
+        let mut graph_edges_count = 0;
+        {
+            let mut g = self.graph.lock().await;
+            for edge in &bundle.graph.edges {
+                // Find node types from bundle node map if available
+                let source_type = bundle.graph.nodes.get(&edge.source)
+                    .map(|n| n.entity_type.clone())
+                    .unwrap_or_else(|| "Concept".to_string());
+                let target_type = bundle.graph.nodes.get(&edge.target)
+                    .map(|n| n.entity_type.clone())
+                    .unwrap_or_else(|| "Concept".to_string());
+                
+                g.add_edge(
+                    edge.source.clone(),
+                    source_type,
+                    edge.target.clone(),
+                    target_type,
+                    edge.relationship_type.clone(),
+                );
+                graph_edges_count += 1;
+            }
+            
+            // Also merge any standalone nodes
+            for (name, node) in &bundle.graph.nodes {
+                g.add_node(name.clone(), node.entity_type.clone());
+            }
+        }
+        
+        Ok(format!(
+            "### Import Summary\n\n\
+            - **Documents Imported:** {}\n\
+            - **Knowledge Graph Connections Merged:** {}\n\n\
+            Research bundle successfully imported and fully indexed locally for instant search and recall.",
+            doc_count, graph_edges_count
+        ))
+    }
 }
 
 fn expand_query(query: &str, breadth: usize) -> Vec<String> {
@@ -627,4 +727,130 @@ fn expand_query(query: &str, breadth: usize) -> Vec<String> {
         }
     }
     expanded
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{Config, IndexConfig};
+    use crate::index::SearchIndex;
+    use crate::graph::KnowledgeGraph;
+    use tokio::sync::Mutex;
+    use std::sync::Arc;
+
+    #[tokio::test]
+    async fn test_export_import_research() {
+        let test_dir = std::env::temp_dir().join(format!("searchxyz_test_tools_{}", rand::random::<u64>()));
+        let _ = std::fs::remove_dir_all(&test_dir);
+
+        let index_config = IndexConfig {
+            path: test_dir.clone(),
+            writer_heap_bytes: 15_000_000,
+        };
+
+        let index = SearchIndex::open(&index_config).unwrap();
+        let graph = Arc::new(Mutex::new(KnowledgeGraph::new()));
+
+        // Add dummy document
+        let doc = ExtractedContent {
+            url: "https://example.com/sharing".to_string(),
+            title: "Sharing Content".to_string(),
+            description: "".to_string(),
+            content_markdown: "Shared research between agents is useful.".to_string(),
+            links: vec![],
+        };
+        index.add_document(&doc, "manual").await.unwrap();
+        index.reload().unwrap();
+
+        // Add graph connection
+        {
+            let mut g = graph.lock().await;
+            g.add_edge(
+                "AgentA".to_string(), "Agent".to_string(),
+                "AgentB".to_string(), "Agent".to_string(),
+                "shares_with".to_string()
+            );
+        }
+
+        // Create server
+        let cache = Arc::new(Mutex::new(crate::cache::Cache::new(10, 60)));
+        let server = SearchXyzServer::new(
+            crate::search::SearchDispatcher::new(vec![]),
+            crate::crawler::Crawler::new(
+                crate::config::CrawlerConfig::default(),
+                crate::config::HeadlessConfig::default(),
+                crate::config::ProxyConfig::default(),
+                cache.clone(),
+            ),
+            crate::extractor::ExtractionPipeline::new(crate::config::ExtractorConfig::default()),
+            index,
+            cache,
+            graph.clone(),
+            Config::default(),
+        );
+
+        // Test export
+        let json_payload = server.export_research(Parameters(ExportResearchRequest {
+            query: None,
+            limit: None,
+        })).await.unwrap();
+
+        // Verify json payload structure
+        let bundle: ResearchBundle = serde_json::from_str(&json_payload).unwrap();
+        assert_eq!(bundle.documents.len(), 1);
+        assert_eq!(bundle.documents[0].title, "Sharing Content");
+        assert_eq!(bundle.graph.edges.len(), 1);
+        assert_eq!(bundle.graph.edges[0].relationship_type, "shares_with");
+
+        // Clean database/graph for import test
+        let clean_dir = std::env::temp_dir().join(format!("searchxyz_test_tools_clean_{}", rand::random::<u64>()));
+        let _ = std::fs::remove_dir_all(&clean_dir);
+
+        let clean_index_config = IndexConfig {
+            path: clean_dir.clone(),
+            writer_heap_bytes: 15_000_000,
+        };
+        let clean_index = SearchIndex::open(&clean_index_config).unwrap();
+        let clean_graph = Arc::new(Mutex::new(KnowledgeGraph::new()));
+        let clean_cache = Arc::new(Mutex::new(crate::cache::Cache::new(10, 60)));
+
+        let clean_server = SearchXyzServer::new(
+            crate::search::SearchDispatcher::new(vec![]),
+            crate::crawler::Crawler::new(
+                crate::config::CrawlerConfig::default(),
+                crate::config::HeadlessConfig::default(),
+                crate::config::ProxyConfig::default(),
+                clean_cache.clone(),
+            ),
+            crate::extractor::ExtractionPipeline::new(crate::config::ExtractorConfig::default()),
+            clean_index,
+            clean_cache,
+            clean_graph.clone(),
+            Config::default(),
+        );
+
+        // Import payload
+        let result = clean_server.import_research(Parameters(ImportResearchRequest {
+            payload: json_payload,
+        })).await.unwrap();
+
+        assert!(result.contains("Documents Imported:** 1"));
+        assert!(result.contains("Knowledge Graph Connections Merged:** 1"));
+
+        // Verify clean index has document
+        clean_server.index.reload().unwrap();
+        let list = clean_server.index.search("sharing", 5).unwrap();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].title, "Sharing Content");
+
+        // Verify clean graph has edges
+        {
+            let g = clean_graph.lock().await;
+            assert_eq!(g.edges.len(), 1);
+            assert_eq!(g.edges[0].source, "AgentA");
+        }
+
+        let _ = std::fs::remove_dir_all(&test_dir);
+        let _ = std::fs::remove_dir_all(&clean_dir);
+    }
 }

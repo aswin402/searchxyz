@@ -423,6 +423,78 @@ impl SearchIndex {
         Ok((paginated, total_count))
     }
 
+    /// Retrieve documents with full content for exporting.
+    pub fn export_documents(
+        &self,
+        query_str: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<ExtractedContent>, SearchXyzError> {
+        let searcher = self.reader.searcher();
+        
+        let query: Box<dyn tantivy::query::Query> = if let Some(q) = query_str {
+            if q.trim().is_empty() {
+                use tantivy::query::AllQuery;
+                Box::new(AllQuery)
+            } else {
+                let query_parser = QueryParser::for_index(
+                    &self.index,
+                    vec![self.f_title, self.f_content],
+                );
+                query_parser.parse_query(q).map_err(|e| {
+                    SearchXyzError::IndexError(format!("Failed to parse query `{q}`: {e}"))
+                })?
+            }
+        } else {
+            use tantivy::query::AllQuery;
+            Box::new(AllQuery)
+        };
+
+        let top_docs = searcher
+            .search(&query, &TopDocs::with_limit(limit))
+            .map_err(|e| SearchXyzError::IndexError(format!("Search execution failed: {e}")))?;
+
+        let mut results = Vec::with_capacity(top_docs.len());
+        for (_, doc_address) in top_docs {
+            let doc: tantivy::TantivyDocument = searcher
+                .doc(doc_address)
+                .map_err(|e| SearchXyzError::IndexError(format!("Failed to retrieve doc: {e}")))?;
+
+            let url = doc
+                .get_first(self.f_url)
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+
+            let title = doc
+                .get_first(self.f_title)
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+
+            let content_markdown = doc
+                .get_first(self.f_content)
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+
+            let source = doc
+                .get_first(self.f_source)
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+
+            results.push(ExtractedContent {
+                url,
+                title,
+                description: format!("Exported from source: {}", source),
+                content_markdown,
+                links: Vec::new(),
+            });
+        }
+
+        Ok(results)
+    }
+
     /// Delete all documents matching a URL.
     pub async fn delete_by_url(
         &self,
@@ -434,6 +506,13 @@ impl SearchIndex {
         writer.commit()?;
         tracing::debug!(url, "Deleted from index");
         Ok(())
+    }
+
+    /// Reload the index reader to see new updates.
+    pub fn reload(&self) -> Result<(), SearchXyzError> {
+        self.reader.reload().map_err(|e| {
+            SearchXyzError::IndexError(format!("Failed to reload index reader: {}", e))
+        })
     }
 }
 
@@ -535,6 +614,45 @@ mod tests {
         let (filtered_docs, filtered_count) = index.list_documents(Some("sourcea"), 5, 0).unwrap();
         assert_eq!(filtered_count, 1);
         assert_eq!(filtered_docs[0].title, "Doc A");
+
+        let _ = std::fs::remove_dir_all(&test_dir);
+    }
+
+    #[tokio::test]
+    async fn test_export_documents() {
+        let test_dir = std::env::temp_dir().join(format!("searchxyz_test_export_{}", rand::random::<u64>()));
+        let _ = std::fs::remove_dir_all(&test_dir);
+
+        let config = IndexConfig {
+            path: test_dir.clone(),
+            writer_heap_bytes: 15_000_000,
+        };
+
+        let index = SearchIndex::open(&config).unwrap();
+
+        let doc1 = ExtractedContent {
+            url: "https://example.com/rust".to_string(),
+            title: "Rust Programming Language".to_string(),
+            description: "".to_string(),
+            content_markdown: "Rust is a multi-paradigm, general-purpose programming language designed for performance and safety.".to_string(),
+            links: vec![],
+        };
+
+        index.add_document(&doc1, "test").await.unwrap();
+        index.reader.reload().unwrap();
+
+        // Test export all
+        let docs = index.export_documents(None, 5).unwrap();
+        assert_eq!(docs.len(), 1);
+        assert_eq!(docs[0].title, "Rust Programming Language");
+        assert_eq!(docs[0].content_markdown, "Rust is a multi-paradigm, general-purpose programming language designed for performance and safety.");
+
+        // Test export with query
+        let docs_query = index.export_documents(Some("performance"), 5).unwrap();
+        assert_eq!(docs_query.len(), 1);
+
+        let docs_empty = index.export_documents(Some("nonexistent"), 5).unwrap();
+        assert_eq!(docs_empty.len(), 0);
 
         let _ = std::fs::remove_dir_all(&test_dir);
     }

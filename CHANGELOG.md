@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.0.16] - 2026-06-21
+
+### Added
+- **Multi-Agent Research Sharing Protocol (`export_research` & `import_research` tools)**: Implemented a schema-based research sharing protocol. Enables exporting selected research documents (full text and metadata) along with knowledge graph nodes/edges into a portable JSON bundle. Importing a bundle automatically stores documents, regenerates local vector embeddings, and merges graph nodes and connections.
+- **Exposed Public reload() Method**: Exposes `reload` in `SearchIndex` to reload the Tantivy reader to immediately reflect updates.
+
 ## [0.0.15] - 2026-06-21
 
 ### Added

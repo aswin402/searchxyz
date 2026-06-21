@@ -4,7 +4,7 @@ use crate::config::ExtractorConfig;
 use crate::error::SearchXyzError;
 
 /// Extracted content from a crawled page.
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct ExtractedContent {
     pub url: String,
     pub title: String,
