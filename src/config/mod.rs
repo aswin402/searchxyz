@@ -229,9 +229,8 @@ impl Config {
         // Start from defaults.
         let mut config = if let Some(p) = path {
             let contents = std::fs::read_to_string(p)?;
-            toml::from_str::<Config>(&contents).map_err(|e| {
-                SearchXyzError::ConfigError(format!("Failed to parse {p}: {e}"))
-            })?
+            toml::from_str::<Config>(&contents)
+                .map_err(|e| SearchXyzError::ConfigError(format!("Failed to parse {p}: {e}")))?
         } else {
             // Try default path; fall back to defaults silently.
             match std::fs::read_to_string("searchxyz.toml") {
@@ -312,9 +311,7 @@ impl Config {
                 "At least one search backend must be configured".into(),
             ));
         }
-        if self.search.backends.contains(&"brave".to_string())
-            && self.brave.api_key.is_none()
-        {
+        if self.search.backends.contains(&"brave".to_string()) && self.brave.api_key.is_none() {
             tracing::warn!(
                 "Brave backend is listed but no API key is set — \
                  it will be skipped at runtime"
@@ -402,18 +399,27 @@ mod tests {
     #[test]
     fn test_env_overrides() {
         std::env::set_var("SEARCHXYZ_PROXY_ENABLED", "true");
-        std::env::set_var("SEARCHXYZ_PROXY_URLS", "http://proxy1:8080, socks5://proxy2:1080");
+        std::env::set_var(
+            "SEARCHXYZ_PROXY_URLS",
+            "http://proxy1:8080, socks5://proxy2:1080",
+        );
         std::env::set_var("SEARCHXYZ_CACHE_PATH", "/tmp/searchxyz-test-cache.json");
 
         let mut config = Config::default();
         config.apply_env_overrides();
 
         assert!(config.proxy.enabled);
-        assert_eq!(config.proxy.urls, vec![
-            "http://proxy1:8080".to_string(),
-            "socks5://proxy2:1080".to_string()
-        ]);
-        assert_eq!(config.cache.path, PathBuf::from("/tmp/searchxyz-test-cache.json"));
+        assert_eq!(
+            config.proxy.urls,
+            vec![
+                "http://proxy1:8080".to_string(),
+                "socks5://proxy2:1080".to_string()
+            ]
+        );
+        assert_eq!(
+            config.cache.path,
+            PathBuf::from("/tmp/searchxyz-test-cache.json")
+        );
 
         // Clean up
         std::env::remove_var("SEARCHXYZ_PROXY_ENABLED");
@@ -421,4 +427,3 @@ mod tests {
         std::env::remove_var("SEARCHXYZ_CACHE_PATH");
     }
 }
-

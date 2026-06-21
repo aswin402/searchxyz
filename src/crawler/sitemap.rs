@@ -1,28 +1,29 @@
-use crate::error::SearchXyzError;
 use crate::crawler::Crawler;
+use crate::error::SearchXyzError;
 
 /// Discover sitemap URLs on a site.
 pub async fn discover_sitemap_urls(
     crawler: &Crawler,
     start_url: &str,
 ) -> Result<Vec<String>, SearchXyzError> {
-    let parsed_url = url::Url::parse(start_url)
-        .map_err(|e| SearchXyzError::CrawlFailed {
-            url: start_url.to_string(),
-            reason: format!("Invalid URL: {e}"),
-        })?;
-
-    let host = parsed_url.host_str().ok_or_else(|| SearchXyzError::CrawlFailed {
+    let parsed_url = url::Url::parse(start_url).map_err(|e| SearchXyzError::CrawlFailed {
         url: start_url.to_string(),
-        reason: "URL has no host".to_string(),
+        reason: format!("Invalid URL: {e}"),
     })?;
+
+    let host = parsed_url
+        .host_str()
+        .ok_or_else(|| SearchXyzError::CrawlFailed {
+            url: start_url.to_string(),
+            reason: "URL has no host".to_string(),
+        })?;
 
     let scheme = parsed_url.scheme();
 
     // 1. Try default sitemap path: /sitemap.xml
     let default_sitemap = format!("{}://{}/sitemap.xml", scheme, host);
     tracing::info!(sitemap = %default_sitemap, "Attempting default sitemap fetch");
-    
+
     match crawler.fetch_url(&default_sitemap, false).await {
         Ok(result) => {
             let urls = parse_sitemap_urls(&result.body);
@@ -114,10 +115,13 @@ mod tests {
             </urlset>
         "#;
         let urls = parse_sitemap_urls(xml);
-        assert_eq!(urls, vec![
-            "https://example.com/".to_string(),
-            "https://example.com/about".to_string(),
-        ]);
+        assert_eq!(
+            urls,
+            vec![
+                "https://example.com/".to_string(),
+                "https://example.com/about".to_string(),
+            ]
+        );
     }
 
     #[test]
@@ -130,16 +134,19 @@ mod tests {
             Sitemap: https://example.com/sitemap2.xml
         "#;
         let sitemaps = parse_sitemaps_from_robots(robots);
-        assert_eq!(sitemaps, vec![
-            "https://example.com/sitemap1.xml".to_string(),
-            "https://example.com/sitemap2.xml".to_string(),
-        ]);
+        assert_eq!(
+            sitemaps,
+            vec![
+                "https://example.com/sitemap1.xml".to_string(),
+                "https://example.com/sitemap2.xml".to_string(),
+            ]
+        );
     }
 
     #[tokio::test]
     async fn test_discover_sitemap_urls_cached() {
-        use crate::config::{CrawlerConfig, HeadlessConfig, ProxyConfig};
         use crate::cache::{Cache, CacheEntry};
+        use crate::config::{CrawlerConfig, HeadlessConfig, ProxyConfig};
         use std::sync::Arc;
         use tokio::sync::Mutex;
 
@@ -153,7 +160,8 @@ mod tests {
                     r#"
                     User-agent: *
                     Sitemap: https://example.com/my-sitemap.xml
-                    "#.to_string(),
+                    "#
+                    .to_string(),
                     "https://example.com/robots.txt".to_string(),
                 ),
             );
@@ -167,7 +175,8 @@ mod tests {
                         <url><loc>https://example.com/page-a</loc></url>
                         <url><loc>https://example.com/page-b</loc></url>
                     </urlset>
-                    "#.to_string(),
+                    "#
+                    .to_string(),
                     "https://example.com/my-sitemap.xml".to_string(),
                 ),
             );
@@ -181,7 +190,9 @@ mod tests {
         );
 
         // Discover sitemap URLs (robots.txt fallback path)
-        let urls = discover_sitemap_urls(&crawler, "https://example.com/").await.unwrap();
+        let urls = discover_sitemap_urls(&crawler, "https://example.com/")
+            .await
+            .unwrap();
         assert_eq!(
             urls,
             vec![

@@ -1,6 +1,6 @@
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
-use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, schemars::JsonSchema)]
 pub struct Node {
@@ -32,14 +32,20 @@ impl KnowledgeGraph {
     /// Add or update an entity node.
     pub fn add_node(&mut self, name: String, entity_type: String) {
         // If node already exists, preserve its details or update type if empty.
-        self.nodes.entry(name.clone()).or_insert(Node {
-            name,
-            entity_type,
-        });
+        self.nodes
+            .entry(name.clone())
+            .or_insert(Node { name, entity_type });
     }
 
     /// Add a relationship edge, ensuring both endpoint nodes exist.
-    pub fn add_edge(&mut self, source: String, source_type: String, target: String, target_type: String, relationship_type: String) {
+    pub fn add_edge(
+        &mut self,
+        source: String,
+        source_type: String,
+        target: String,
+        target_type: String,
+        relationship_type: String,
+    ) {
         self.add_node(source.clone(), source_type);
         self.add_node(target.clone(), target_type);
 
@@ -117,13 +123,53 @@ impl KnowledgeGraph {
     pub fn extract_heuristics(&mut self, url: &str, _title: &str, content: &str) {
         // List of technical keywords we look for (case-insensitive).
         let keywords = [
-            "rust", "python", "javascript", "typescript", "go", "java", "c++",
-            "docker", "kubernetes", "aws", "gcp", "azure", "sqlite", "postgresql",
-            "mysql", "mongodb", "redis", "elasticsearch", "tokio", "actix",
-            "axum", "fastapi", "django", "flask", "react", "vue", "next.js",
-            "tailwind", "npm", "cargo", "git", "github", "linux", "windows",
-            "macos", "mcp", "tantivy", "fastembed", "neural", "embedding",
-            "search", "crawl", "vector", "semantic", "llm", "ai", "gemini",
+            "rust",
+            "python",
+            "javascript",
+            "typescript",
+            "go",
+            "java",
+            "c++",
+            "docker",
+            "kubernetes",
+            "aws",
+            "gcp",
+            "azure",
+            "sqlite",
+            "postgresql",
+            "mysql",
+            "mongodb",
+            "redis",
+            "elasticsearch",
+            "tokio",
+            "actix",
+            "axum",
+            "fastapi",
+            "django",
+            "flask",
+            "react",
+            "vue",
+            "next.js",
+            "tailwind",
+            "npm",
+            "cargo",
+            "git",
+            "github",
+            "linux",
+            "windows",
+            "macos",
+            "mcp",
+            "tantivy",
+            "fastembed",
+            "neural",
+            "embedding",
+            "search",
+            "crawl",
+            "vector",
+            "semantic",
+            "llm",
+            "ai",
+            "gemini",
         ];
 
         let content_lower = content.to_lowercase();
@@ -133,7 +179,10 @@ impl KnowledgeGraph {
             // Check for keyword with word boundaries
             let kw_pattern = format!(" {}", kw);
             let kw_pattern_start = format!("{}:", kw); // e.g. for lists
-            if content_lower.contains(&kw_pattern) || content_lower.starts_with(kw) || content_lower.contains(&kw_pattern_start) {
+            if content_lower.contains(&kw_pattern)
+                || content_lower.starts_with(kw)
+                || content_lower.contains(&kw_pattern_start)
+            {
                 matched.push(*kw);
             }
         }
@@ -142,7 +191,7 @@ impl KnowledgeGraph {
             // Add the document node
             let doc_name = url.to_string();
             self.add_node(doc_name.clone(), "Document".to_string());
-            
+
             for term in matched {
                 let canonical_term = capitalize_keyword(term);
                 self.add_edge(
@@ -255,15 +304,36 @@ mod tests {
     #[test]
     fn test_graph_bfs_neighbors() {
         let mut graph = KnowledgeGraph::new();
-        graph.add_edge("A".into(), "Type".into(), "B".into(), "Type".into(), "link".into());
-        graph.add_edge("B".into(), "Type".into(), "C".into(), "Type".into(), "link".into());
-        graph.add_edge("C".into(), "Type".into(), "D".into(), "Type".into(), "link".into());
+        graph.add_edge(
+            "A".into(),
+            "Type".into(),
+            "B".into(),
+            "Type".into(),
+            "link".into(),
+        );
+        graph.add_edge(
+            "B".into(),
+            "Type".into(),
+            "C".into(),
+            "Type".into(),
+            "link".into(),
+        );
+        graph.add_edge(
+            "C".into(),
+            "Type".into(),
+            "D".into(),
+            "Type".into(),
+            "link".into(),
+        );
 
         // Depth 1 from B should reach A and C
         let (nodes, edges) = graph.query_neighbors("B", 1);
         let mut names: Vec<String> = nodes.into_iter().map(|n| n.name).collect();
         names.sort();
-        assert_eq!(names, vec!["A".to_string(), "B".to_string(), "C".to_string()]);
+        assert_eq!(
+            names,
+            vec!["A".to_string(), "B".to_string(), "C".to_string()]
+        );
         assert_eq!(edges.len(), 2);
 
         // Case-insensitive query
@@ -289,7 +359,10 @@ mod tests {
         assert!(graph.nodes.contains_key("Tokio"));
 
         // Mentions relationship
-        let has_rust_edge = graph.edges.iter().any(|e| e.source == "https://example.com/rust-async" && e.target == "Rust");
+        let has_rust_edge = graph
+            .edges
+            .iter()
+            .any(|e| e.source == "https://example.com/rust-async" && e.target == "Rust");
         assert!(has_rust_edge);
     }
 }

@@ -1,13 +1,21 @@
+#![allow(dead_code)]
+#![allow(unused_variables)]
+#![allow(clippy::borrow_deref_ref)]
+#![allow(clippy::derivable_impls)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::double_ended_iterator_last)]
+#![allow(clippy::useless_vec)]
+
 mod cache;
 mod config;
 mod crawler;
 mod error;
 mod extractor;
+mod graph;
 mod index;
 mod pipeline;
 mod search;
 mod tools;
-mod graph;
 
 use std::sync::Arc;
 
@@ -20,10 +28,13 @@ use config::Config;
 use crawler::Crawler;
 use extractor::ExtractionPipeline;
 use index::SearchIndex;
-use search::{SearchDispatcher, brave::BraveBackend, duckduckgo::DuckDuckGoBackend, searxng::SearXngBackend, google::GoogleBackend, bing::BingBackend};
+use search::{
+    bing::BingBackend, brave::BraveBackend, duckduckgo::DuckDuckGoBackend, google::GoogleBackend,
+    searxng::SearXngBackend, SearchDispatcher,
+};
 use tools::SearchXyzServer;
 
-use rmcp::{ServiceExt, transport::stdio};
+use rmcp::{transport::stdio, ServiceExt};
 
 // ── CLI arguments ────────────────────────────────────────────
 
@@ -94,19 +105,13 @@ async fn main() -> anyhow::Result<()> {
     for name in &config.search.backends {
         match name.as_str() {
             "duckduckgo" => {
-                backends.push(Box::new(DuckDuckGoBackend::new(
-                    http_client.clone(),
-                )));
+                backends.push(Box::new(DuckDuckGoBackend::new(http_client.clone())));
             }
             "google" => {
-                backends.push(Box::new(GoogleBackend::new(
-                    http_client.clone(),
-                )));
+                backends.push(Box::new(GoogleBackend::new(http_client.clone())));
             }
             "bing" => {
-                backends.push(Box::new(BingBackend::new(
-                    http_client.clone(),
-                )));
+                backends.push(Box::new(BingBackend::new(http_client.clone())));
             }
             "brave" => {
                 backends.push(Box::new(BraveBackend::new(

@@ -1,11 +1,11 @@
+pub mod bing;
 pub mod brave;
 pub mod duckduckgo;
-pub mod searxng;
 pub mod google;
-pub mod bing;
+pub mod searxng;
 
-use async_trait::async_trait;
 use crate::error::SearchXyzError;
+use async_trait::async_trait;
 
 // ─────────────────────────────────────────────────────────────
 // Core data types
@@ -59,19 +59,13 @@ impl SearchDispatcher {
 
     /// Run the query against backends in configured order.
     /// Returns the first successful result set.
-    pub async fn search(
-        &self,
-        query: &SearchQuery,
-    ) -> Result<Vec<SearchResult>, SearchXyzError> {
+    pub async fn search(&self, query: &SearchQuery) -> Result<Vec<SearchResult>, SearchXyzError> {
         let mut tried: Vec<String> = Vec::new();
 
         for backend in &self.backends {
             // Skip unavailable backends (e.g. missing API key).
             if !backend.is_available() {
-                tracing::debug!(
-                    backend = backend.name(),
-                    "Skipping unavailable backend"
-                );
+                tracing::debug!(backend = backend.name(), "Skipping unavailable backend");
                 continue;
             }
 
@@ -91,10 +85,7 @@ impl SearchDispatcher {
                     return Ok(results);
                 }
                 Ok(_empty) => {
-                    tracing::warn!(
-                        backend = backend.name(),
-                        "Backend returned zero results"
-                    );
+                    tracing::warn!(backend = backend.name(), "Backend returned zero results");
                     tried.push(format!("{} (0 results)", backend.name()));
                 }
                 Err(err) => {

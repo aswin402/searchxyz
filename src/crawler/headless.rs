@@ -5,21 +5,25 @@ use crate::error::SearchXyzError;
 pub struct HeadlessBrowser {
     #[allow(dead_code)]
     config: HeadlessConfig,
+    #[allow(dead_code)]
     proxy_config: crate::config::ProxyConfig,
 }
 
 impl HeadlessBrowser {
     pub fn new(config: HeadlessConfig, proxy_config: crate::config::ProxyConfig) -> Self {
-        Self { config, proxy_config }
+        Self {
+            config,
+            proxy_config,
+        }
     }
 
     #[cfg(feature = "js-rendering")]
     pub async fn fetch_html(&self, url: &str) -> Result<String, SearchXyzError> {
+        use chromiumoxide::browser::{Browser, BrowserConfig};
+        use chromiumoxide::cdp::browser_protocol::network::{Headers, SetExtraHttpHeadersParams};
+        use futures::StreamExt;
         use std::collections::HashMap;
         use std::time::Duration;
-        use futures::StreamExt;
-        use chromiumoxide::browser::{Browser, BrowserConfig};
-        use chromiumoxide::cdp::browser_protocol::network::{SetExtraHttpHeadersParams, Headers};
 
         let mut config_builder = BrowserConfig::builder()
             .window_size(self.config.viewport_width, self.config.viewport_height);
@@ -37,17 +41,20 @@ impl HeadlessBrowser {
         }
 
         // Launch browser
-        let (mut browser, mut handler) = Browser::launch(config_builder.build().map_err(|e| {
-            SearchXyzError::CrawlFailed {
-                url: url.to_string(),
-                reason: format!("Failed to build browser config: {e}"),
-            }
-        })?).await.map_err(|e| {
-            SearchXyzError::CrawlFailed {
+        let (mut browser, mut handler) =
+            Browser::launch(
+                config_builder
+                    .build()
+                    .map_err(|e| SearchXyzError::CrawlFailed {
+                        url: url.to_string(),
+                        reason: format!("Failed to build browser config: {e}"),
+                    })?,
+            )
+            .await
+            .map_err(|e| SearchXyzError::CrawlFailed {
                 url: url.to_string(),
                 reason: format!("Failed to launch headless browser: {e}"),
-            }
-        })?;
+            })?;
 
         // Spawn background handler
         tokio::spawn(async move {
@@ -59,12 +66,14 @@ impl HeadlessBrowser {
         });
 
         // Open a blank page first
-        let page = browser.new_page("about:blank").await.map_err(|e| {
-            SearchXyzError::CrawlFailed {
-                url: url.to_string(),
-                reason: format!("Failed to open page in browser: {e}"),
-            }
-        })?;
+        let page =
+            browser
+                .new_page("about:blank")
+                .await
+                .map_err(|e| SearchXyzError::CrawlFailed {
+                    url: url.to_string(),
+                    reason: format!("Failed to open page in browser: {e}"),
+                })?;
 
         // Generate and set random headers
         let rand_headers = crate::crawler::fingerprint::HeaderGenerator::random_headers();
@@ -78,35 +87,33 @@ impl HeadlessBrowser {
         let params = SetExtraHttpHeadersParams::builder()
             .headers(Headers::new(serde_json::to_value(headers_map).unwrap()))
             .build()
-            .map_err(|e| {
-                SearchXyzError::CrawlFailed {
-                    url: url.to_string(),
-                    reason: format!("Failed to build CDP header params: {e}"),
-                }
+            .map_err(|e| SearchXyzError::CrawlFailed {
+                url: url.to_string(),
+                reason: format!("Failed to build CDP header params: {e}"),
             })?;
 
-        page.execute(params).await.map_err(|e| {
-            SearchXyzError::CrawlFailed {
+        page.execute(params)
+            .await
+            .map_err(|e| SearchXyzError::CrawlFailed {
                 url: url.to_string(),
                 reason: format!("Failed to set browser headers: {e}"),
-            }
-        })?;
+            })?;
 
         // Navigate to URL
-        page.goto(url).await.map_err(|e| {
-            SearchXyzError::CrawlFailed {
+        page.goto(url)
+            .await
+            .map_err(|e| SearchXyzError::CrawlFailed {
                 url: url.to_string(),
                 reason: format!("Failed to navigate browser to URL: {e}"),
-            }
-        })?;
+            })?;
 
         // Wait for page navigation to complete
-        page.wait_for_navigation().await.map_err(|e| {
-            SearchXyzError::CrawlFailed {
+        page.wait_for_navigation()
+            .await
+            .map_err(|e| SearchXyzError::CrawlFailed {
                 url: url.to_string(),
                 reason: format!("Browser navigation wait failed: {e}"),
-            }
-        })?;
+            })?;
 
         // Extra sleep for SPA JavaScript execution to complete
         if self.config.wait_after_load_ms > 0 {
@@ -114,12 +121,13 @@ impl HeadlessBrowser {
         }
 
         // Get fully rendered page source
-        let html = page.content().await.map_err(|e| {
-            SearchXyzError::CrawlFailed {
+        let html = page
+            .content()
+            .await
+            .map_err(|e| SearchXyzError::CrawlFailed {
                 url: url.to_string(),
                 reason: format!("Failed to extract page HTML: {e}"),
-            }
-        })?;
+            })?;
 
         // Close page and browser
         let _ = page.close().await;

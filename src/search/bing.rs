@@ -2,9 +2,9 @@ use async_trait::async_trait;
 use reqwest::Client;
 use scraper::{Html, Selector};
 
-use crate::error::SearchXyzError;
-use crate::crawler::fingerprint::HeaderGenerator;
 use super::{SearchBackend, SearchQuery, SearchResult};
+use crate::crawler::fingerprint::HeaderGenerator;
+use crate::error::SearchXyzError;
 
 /// Native Bing Scraper Backend — no API key required.
 pub struct BingBackend {
@@ -28,7 +28,7 @@ impl BingBackend {
         if !containers.is_empty() {
             let title_sel = Selector::parse("h2").unwrap();
             let link_sel = Selector::parse("a[href]").unwrap();
-            
+
             // Bing snippet selectors
             let snippet_selectors = vec![
                 Selector::parse(".b_caption p").unwrap(),
@@ -48,7 +48,12 @@ impl BingBackend {
                     None => continue,
                 };
 
-                let title = title_el.text().collect::<Vec<_>>().join("").trim().to_string();
+                let title = title_el
+                    .text()
+                    .collect::<Vec<_>>()
+                    .join("")
+                    .trim()
+                    .to_string();
                 if title.is_empty() {
                     continue;
                 }
@@ -72,7 +77,12 @@ impl BingBackend {
                 let mut snippet = String::new();
                 for snippet_sel in &snippet_selectors {
                     if let Some(snippet_el) = container.select(snippet_sel).next() {
-                        snippet = snippet_el.text().collect::<Vec<_>>().join("").trim().to_string();
+                        snippet = snippet_el
+                            .text()
+                            .collect::<Vec<_>>()
+                            .join("")
+                            .trim()
+                            .to_string();
                         if !snippet.is_empty() {
                             break;
                         }
@@ -104,7 +114,7 @@ impl BingBackend {
                 if results.len() >= max_results {
                     break;
                 }
-                
+
                 let title = h2_el.text().collect::<Vec<_>>().join("").trim().to_string();
                 if title.is_empty() {
                     continue;
@@ -155,10 +165,7 @@ impl SearchBackend for BingBackend {
         true // no key needed
     }
 
-    async fn search(
-        &self,
-        query: &SearchQuery,
-    ) -> Result<Vec<SearchResult>, SearchXyzError> {
+    async fn search(&self, query: &SearchQuery) -> Result<Vec<SearchResult>, SearchXyzError> {
         let resp = self
             .client
             .get("https://www.bing.com/search")
@@ -178,12 +185,13 @@ impl SearchBackend for BingBackend {
             });
         }
 
-        let html_body = resp.text().await.map_err(|e| {
-            SearchXyzError::SearchFailed {
+        let html_body = resp
+            .text()
+            .await
+            .map_err(|e| SearchXyzError::SearchFailed {
                 query: query.query.clone(),
                 reason: format!("Failed to read Bing response body: {e}"),
-            }
-        })?;
+            })?;
 
         let results = Self::parse_results(&html_body, query.max_results);
 

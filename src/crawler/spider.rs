@@ -3,8 +3,8 @@ use std::sync::Arc;
 use tokio::task::JoinSet;
 
 use crate::crawler::Crawler;
-use crate::extractor::{ExtractionPipeline, ExtractedContent};
 use crate::error::SearchXyzError;
+use crate::extractor::{ExtractedContent, ExtractionPipeline};
 
 pub struct Spider {
     crawler: Arc<Crawler>,
@@ -54,7 +54,11 @@ impl Spider {
 
                 join_set.spawn(async move {
                     let fetch_result = crawler.fetch_url(&url, render_js).await?;
-                    let content = extractor.extract(&url, &fetch_result.body, Some(&fetch_result.content_type))?;
+                    let content = extractor.extract(
+                        &url,
+                        &fetch_result.body,
+                        Some(&fetch_result.content_type),
+                    )?;
                     Ok::<ExtractedContent, SearchXyzError>(content)
                 });
             }

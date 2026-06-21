@@ -17,12 +17,23 @@ impl HeaderGenerator {
         let mut rng = rand::rng();
 
         let ua = USER_AGENTS.choose(&mut rng).unwrap_or(&USER_AGENTS[0]);
-        
+
         headers.insert(reqwest::header::USER_AGENT, ua.parse().unwrap());
-        headers.insert(reqwest::header::ACCEPT, "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8".parse().unwrap());
-        headers.insert(reqwest::header::ACCEPT_LANGUAGE, "en-US,en;q=0.5".parse().unwrap());
-        headers.insert(reqwest::header::ACCEPT_ENCODING, "gzip, deflate, br".parse().unwrap());
-        
+        headers.insert(
+            reqwest::header::ACCEPT,
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"
+                .parse()
+                .unwrap(),
+        );
+        headers.insert(
+            reqwest::header::ACCEPT_LANGUAGE,
+            "en-US,en;q=0.5".parse().unwrap(),
+        );
+        headers.insert(
+            reqwest::header::ACCEPT_ENCODING,
+            "gzip, deflate, br".parse().unwrap(),
+        );
+
         headers
     }
 }
@@ -38,8 +49,12 @@ mod tests {
         assert!(headers.contains_key(reqwest::header::ACCEPT));
         assert!(headers.contains_key(reqwest::header::ACCEPT_LANGUAGE));
         assert!(headers.contains_key(reqwest::header::ACCEPT_ENCODING));
-        
-        let ua = headers.get(reqwest::header::USER_AGENT).unwrap().to_str().unwrap();
+
+        let ua = headers
+            .get(reqwest::header::USER_AGENT)
+            .unwrap()
+            .to_str()
+            .unwrap();
         assert!(USER_AGENTS.contains(&ua));
     }
 }

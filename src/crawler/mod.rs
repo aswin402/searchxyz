@@ -1,20 +1,18 @@
+pub mod fast_spider;
 pub mod fingerprint;
-pub mod spider;
+pub mod github;
 pub mod headless;
 pub mod sitemap;
-pub mod fast_spider;
+pub mod spider;
 pub mod youtube;
-pub mod github;
-
-
 
 use headless::HeadlessBrowser;
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
 
-use governor::{Quota, RateLimiter, clock::DefaultClock, state::keyed::DefaultKeyedStateStore};
-use reqwest::{Client, StatusCode, redirect::Policy};
+use governor::{clock::DefaultClock, state::keyed::DefaultKeyedStateStore, Quota, RateLimiter};
+use reqwest::{redirect::Policy, Client, StatusCode};
 use tokio::sync::Mutex;
 use url::Url;
 
@@ -23,8 +21,7 @@ use crate::config::CrawlerConfig;
 use crate::error::SearchXyzError;
 
 /// Per-domain keyed rate limiter type.
-type DomainRateLimiter =
-    RateLimiter<String, DefaultKeyedStateStore<String>, DefaultClock>;
+type DomainRateLimiter = RateLimiter<String, DefaultKeyedStateStore<String>, DefaultClock>;
 
 /// The crawler fetches HTML pages with timeouts, retries, and
 /// per-domain rate limiting.
@@ -137,15 +134,13 @@ impl Crawler {
             .map(|u| u.host_str().unwrap_or("unknown").to_string())
             .unwrap_or_else(|_| "unknown".into());
 
-        self.rate_limiter
-            .until_key_ready(&domain)
-            .await;
+        self.rate_limiter.until_key_ready(&domain).await;
 
         // ── 3. Headless JS execution if requested ──
         if render_js {
             tracing::info!(url, "Fetching URL with headless browser");
             let body = self.headless_browser.fetch_html(url).await?;
-            
+
             // Cache the response
             {
                 let mut cache = self.cache.lock().await;
@@ -170,12 +165,11 @@ impl Crawler {
 
             let headers = fingerprint::HeaderGenerator::random_headers();
             use rand::seq::IndexedRandom;
-            let client = self.clients.choose(&mut rand::rng()).unwrap_or(&self.clients[0]);
-            let resp = client
-                .get(url)
-                .headers(headers)
-                .send()
-                .await;
+            let client = self
+                .clients
+                .choose(&mut rand::rng())
+                .unwrap_or(&self.clients[0]);
+            let resp = client.get(url).headers(headers).send().await;
 
             match resp {
                 Ok(response) => {
@@ -190,8 +184,7 @@ impl Crawler {
                             return Err(SearchXyzError::HttpError {
                                 url: url.into(),
                                 status: 403,
-                                reason: "Access forbidden — site blocks automated access"
-                                    .into(),
+                                reason: "Access forbidden — site blocks automated access".into(),
                             });
                         }
 
@@ -205,9 +198,7 @@ impl Crawler {
 
                         StatusCode::TOO_MANY_REQUESTS => {
                             if attempt <= self.config.max_retries {
-                                let delay = Duration::from_millis(
-                                    1000 * 2u64.pow(attempt - 1),
-                                );
+                                let delay = Duration::from_millis(1000 * 2u64.pow(attempt - 1));
                                 tracing::warn!(url, attempt, "Rate limited, backing off");
                                 tokio::time::sleep(delay).await;
                                 continue;
@@ -218,12 +209,9 @@ impl Crawler {
                             });
                         }
 
-                        StatusCode::INTERNAL_SERVER_ERROR
-                        | StatusCode::SERVICE_UNAVAILABLE => {
+                        StatusCode::INTERNAL_SERVER_ERROR | StatusCode::SERVICE_UNAVAILABLE => {
                             if attempt <= self.config.max_retries {
-                                let delay = Duration::from_millis(
-                                    500 * 2u64.pow(attempt - 1),
-                                );
+                                let delay = Duration::from_millis(500 * 2u64.pow(attempt - 1));
                                 tracing::warn!(
                                     url, status = %status, attempt,
                                     "Server error, retrying"
@@ -290,32 +278,31 @@ impl Crawler {
                     }
 
                     // ── Read response bytes ──
-                    let bytes = response
-                        .bytes()
-                        .await
-                        .map_err(|e| SearchXyzError::CrawlFailed {
-                            url: url.into(),
-                            reason: format!("Failed to read response bytes: {e}"),
-                        })?;
+                    let bytes =
+                        response
+                            .bytes()
+                            .await
+                            .map_err(|e| SearchXyzError::CrawlFailed {
+                                url: url.into(),
+                                reason: format!("Failed to read response bytes: {e}"),
+                            })?;
 
                     if bytes.len() > self.config.max_body_bytes {
                         return Err(SearchXyzError::CrawlFailed {
                             url: url.into(),
-                            reason: format!(
-                                "Body exceeds limit ({} bytes)",
-                                bytes.len()
-                            ),
+                            reason: format!("Body exceeds limit ({} bytes)", bytes.len()),
                         });
                     }
 
                     // ── Extract body string (HTML/text vs PDF) ──
                     let body = if is_pdf {
                         tracing::info!(url, "Extracting text from PDF document");
-                        pdf_extract::extract_text_from_mem(&bytes)
-                            .map_err(|e| SearchXyzError::ExtractionFailed {
+                        pdf_extract::extract_text_from_mem(&bytes).map_err(|e| {
+                            SearchXyzError::ExtractionFailed {
                                 url: url.into(),
                                 reason: format!("Failed to extract PDF text: {e}"),
-                            })?
+                            }
+                        })?
                     } else {
                         String::from_utf8_lossy(&bytes).into_owned()
                     };
@@ -339,11 +326,8 @@ impl Crawler {
 
                 Err(e) => {
                     // Network-level error — retry on transient failures.
-                    if attempt <= self.config.max_retries
-                        && (e.is_timeout() || e.is_connect())
-                    {
-                        let delay =
-                            Duration::from_millis(500 * 2u64.pow(attempt - 1));
+                    if attempt <= self.config.max_retries && (e.is_timeout() || e.is_connect()) {
+                        let delay = Duration::from_millis(500 * 2u64.pow(attempt - 1));
                         tracing::warn!(
                             url, error = %e, attempt,
                             "Transient error, retrying"
@@ -361,8 +345,8 @@ impl Crawler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{CrawlerConfig, HeadlessConfig, ProxyConfig};
     use crate::cache::Cache;
+    use crate::config::{CrawlerConfig, HeadlessConfig, ProxyConfig};
     use std::sync::Arc;
     use tokio::sync::Mutex;
 
@@ -377,13 +361,21 @@ mod tests {
             enabled: false,
             urls: vec!["http://127.0.0.1:8080".to_string()],
         };
-        let crawler = Crawler::new(crawler_config.clone(), headless_config.clone(), proxy_config, cache.clone());
+        let crawler = Crawler::new(
+            crawler_config.clone(),
+            headless_config.clone(),
+            proxy_config,
+            cache.clone(),
+        );
         assert_eq!(crawler.clients.len(), 1);
 
         // Case 2: Proxy enabled with valid urls
         let proxy_config = ProxyConfig {
             enabled: true,
-            urls: vec!["http://127.0.0.1:8080".to_string(), "socks5://127.0.0.1:1080".to_string()],
+            urls: vec![
+                "http://127.0.0.1:8080".to_string(),
+                "socks5://127.0.0.1:1080".to_string(),
+            ],
         };
         let crawler = Crawler::new(crawler_config, headless_config, proxy_config, cache);
         assert_eq!(crawler.clients.len(), 2);

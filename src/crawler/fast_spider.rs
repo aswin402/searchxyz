@@ -129,17 +129,20 @@ mod tests {
             </html>
         "#;
         let links = extract_links_from_html(html, "https://example.com/");
-        assert_eq!(links, vec![
-            "https://example.com/about".to_string(),
-            "https://example.com/contact".to_string(),
-            "http://otherdomain.com/page".to_string(),
-        ]);
+        assert_eq!(
+            links,
+            vec![
+                "https://example.com/about".to_string(),
+                "https://example.com/contact".to_string(),
+                "http://otherdomain.com/page".to_string(),
+            ]
+        );
     }
 
     #[tokio::test]
     async fn test_link_spider_bfs_cached() {
-        use crate::config::{CrawlerConfig, HeadlessConfig, ProxyConfig};
         use crate::cache::{Cache, CacheEntry};
+        use crate::config::{CrawlerConfig, HeadlessConfig, ProxyConfig};
         use std::sync::Arc;
         use tokio::sync::Mutex;
 
@@ -158,7 +161,8 @@ mod tests {
                             <a href="https://external.com/">External</a>
                         </body>
                     </html>
-                    "#.to_string(),
+                    "#
+                    .to_string(),
                     "https://example.com/".to_string(),
                 ),
             );
@@ -172,7 +176,8 @@ mod tests {
                             <a href="/page3">Page 3</a>
                         </body>
                     </html>
-                    "#.to_string(),
+                    "#
+                    .to_string(),
                     "https://example.com/page1".to_string(),
                 ),
             );
@@ -186,7 +191,8 @@ mod tests {
                             <a href="/page1">Back to Page 1</a>
                         </body>
                     </html>
-                    "#.to_string(),
+                    "#
+                    .to_string(),
                     "https://example.com/page2".to_string(),
                 ),
             );
@@ -208,7 +214,10 @@ mod tests {
         ));
 
         let spider = LinkSpider::new(crawler);
-        let mut links = spider.discover_links("https://example.com/", 10).await.unwrap();
+        let mut links = spider
+            .discover_links("https://example.com/", 10)
+            .await
+            .unwrap();
         links.sort();
 
         assert_eq!(

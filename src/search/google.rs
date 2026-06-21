@@ -2,9 +2,9 @@ use async_trait::async_trait;
 use reqwest::Client;
 use scraper::{Html, Selector};
 
-use crate::error::SearchXyzError;
-use crate::crawler::fingerprint::HeaderGenerator;
 use super::{SearchBackend, SearchQuery, SearchResult};
+use crate::crawler::fingerprint::HeaderGenerator;
+use crate::error::SearchXyzError;
 
 /// Native Google Scraper Backend — no API key required.
 pub struct GoogleBackend {
@@ -20,7 +20,8 @@ impl GoogleBackend {
         let document = Html::parse_document(html_body);
 
         // Google organic result containers
-        let container_sel = Selector::parse("div.g, div.MjjYud, div[jscontroller][data-hveid][data-ved]").unwrap();
+        let container_sel =
+            Selector::parse("div.g, div.MjjYud, div[jscontroller][data-hveid][data-ved]").unwrap();
         let containers: Vec<_> = document.select(&container_sel).collect();
 
         let mut results = Vec::new();
@@ -28,7 +29,7 @@ impl GoogleBackend {
         if !containers.is_empty() {
             let title_sel = Selector::parse("h3").unwrap();
             let link_sel = Selector::parse("a[href]").unwrap();
-            
+
             // Google snippet selectors:
             // .VwiC3b, .yDAB2e, .BNeawe, div[style*="-webkit-line-clamp"]
             let snippet_selectors = vec![
@@ -49,7 +50,12 @@ impl GoogleBackend {
                     None => continue,
                 };
 
-                let title = title_el.text().collect::<Vec<_>>().join("").trim().to_string();
+                let title = title_el
+                    .text()
+                    .collect::<Vec<_>>()
+                    .join("")
+                    .trim()
+                    .to_string();
                 if title.is_empty() {
                     continue;
                 }
@@ -61,7 +67,9 @@ impl GoogleBackend {
                             if href.starts_with("http") {
                                 href.to_string()
                             } else if href.starts_with("/url?q=") {
-                                if let Ok(parsed) = url::Url::parse(&format!("https://www.google.com{}", href)) {
+                                if let Ok(parsed) =
+                                    url::Url::parse(&format!("https://www.google.com{}", href))
+                                {
                                     let mut target = None;
                                     for (k, v) in parsed.query_pairs() {
                                         if k == "q" {
@@ -90,7 +98,12 @@ impl GoogleBackend {
                 let mut snippet = String::new();
                 for snippet_sel in &snippet_selectors {
                     if let Some(snippet_el) = container.select(snippet_sel).next() {
-                        snippet = snippet_el.text().collect::<Vec<_>>().join("").trim().to_string();
+                        snippet = snippet_el
+                            .text()
+                            .collect::<Vec<_>>()
+                            .join("")
+                            .trim()
+                            .to_string();
                         if !snippet.is_empty() {
                             break;
                         }
@@ -122,7 +135,7 @@ impl GoogleBackend {
                 if results.len() >= max_results {
                     break;
                 }
-                
+
                 let title = h3_el.text().collect::<Vec<_>>().join("").trim().to_string();
                 if title.is_empty() {
                     continue;
@@ -174,10 +187,7 @@ impl SearchBackend for GoogleBackend {
         true // no key needed
     }
 
-    async fn search(
-        &self,
-        query: &SearchQuery,
-    ) -> Result<Vec<SearchResult>, SearchXyzError> {
+    async fn search(&self, query: &SearchQuery) -> Result<Vec<SearchResult>, SearchXyzError> {
         let resp = self
             .client
             .get("https://www.google.com/search")
@@ -197,12 +207,13 @@ impl SearchBackend for GoogleBackend {
             });
         }
 
-        let html_body = resp.text().await.map_err(|e| {
-            SearchXyzError::SearchFailed {
+        let html_body = resp
+            .text()
+            .await
+            .map_err(|e| SearchXyzError::SearchFailed {
                 query: query.query.clone(),
                 reason: format!("Failed to read Google response body: {e}"),
-            }
-        })?;
+            })?;
 
         let results = Self::parse_results(&html_body, query.max_results);
 

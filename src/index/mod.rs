@@ -1,14 +1,10 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use fastembed::{TextEmbedding, TextInitOptions, EmbeddingModel};
+use fastembed::{EmbeddingModel, TextEmbedding, TextInitOptions};
 use tantivy::{
-    collector::TopDocs,
-    directory::MmapDirectory,
-    query::QueryParser,
-    schema::*,
-    Index, IndexReader, IndexWriter, ReloadPolicy,
-    doc,
+    collector::TopDocs, directory::MmapDirectory, doc, query::QueryParser, schema::*, Index,
+    IndexReader, IndexWriter, ReloadPolicy,
 };
 use tokio::sync::Mutex;
 
@@ -63,24 +59,19 @@ impl SearchIndex {
         let f_title = builder.add_text_field("title", TEXT | STORED);
         let f_content = builder.add_text_field("content", TEXT | STORED);
         let f_source = builder.add_text_field("source", TEXT | STORED);
-        let f_indexed_at = builder.add_date_field(
-            "indexed_at",
-            INDEXED | STORED,
-        );
-        let f_embedding = builder.add_bytes_field("embedding", BytesOptions::default().set_stored());
+        let f_indexed_at = builder.add_date_field("indexed_at", INDEXED | STORED);
+        let f_embedding =
+            builder.add_bytes_field("embedding", BytesOptions::default().set_stored());
 
         let schema = builder.build();
 
         // ── Open or create index ──
-        let dir = MmapDirectory::open(&config.path)
-            .map_err(|e| SearchXyzError::IndexError(format!(
-                "Failed to open index directory: {e}"
-            )))?;
+        let dir = MmapDirectory::open(&config.path).map_err(|e| {
+            SearchXyzError::IndexError(format!("Failed to open index directory: {e}"))
+        })?;
 
         let index = Index::open_or_create(dir, schema.clone())
-            .map_err(|e| SearchXyzError::IndexError(format!(
-                "Failed to open/create index: {e}"
-            )))?;
+            .map_err(|e| SearchXyzError::IndexError(format!("Failed to open/create index: {e}")))?;
 
         // ── Reader (auto-reload on new commits) ──
         let reader = index
@@ -94,15 +85,15 @@ impl SearchIndex {
         // ── Writer ──
         let writer = index
             .writer(config.writer_heap_bytes)
-            .map_err(|e| SearchXyzError::IndexError(format!(
-                "Failed to create writer: {e}"
-            )))?;
+            .map_err(|e| SearchXyzError::IndexError(format!("Failed to create writer: {e}")))?;
 
         // ── Embeddings Model ──
         let embedding_model = TextEmbedding::try_new(
-            TextInitOptions::new(EmbeddingModel::BGESmallENV15)
-                .with_show_download_progress(false)
-        ).map_err(|e| SearchXyzError::IndexError(format!("Failed to initialize embedding model: {e}")))?;
+            TextInitOptions::new(EmbeddingModel::BGESmallENV15).with_show_download_progress(false),
+        )
+        .map_err(|e| {
+            SearchXyzError::IndexError(format!("Failed to initialize embedding model: {e}"))
+        })?;
 
         Ok(Self {
             index,
@@ -134,12 +125,16 @@ impl SearchIndex {
             let mut model = self.embedding_model.lock().map_err(|e| {
                 SearchXyzError::IndexError(format!("Embedding model mutex poisoned: {e}"))
             })?;
-            model.embed(vec![text_truncated.as_str()], None)
-                .map_err(|e| SearchXyzError::IndexError(format!("Failed to generate embedding: {e}")))?
+            model
+                .embed(vec![text_truncated.as_str()], None)
+                .map_err(|e| {
+                    SearchXyzError::IndexError(format!("Failed to generate embedding: {e}"))
+                })?
         };
-        let embedding = embeddings.into_iter().next().ok_or_else(|| {
-            SearchXyzError::IndexError("No embedding returned".to_string())
-        })?;
+        let embedding = embeddings
+            .into_iter()
+            .next()
+            .ok_or_else(|| SearchXyzError::IndexError("No embedding returned".to_string()))?;
 
         let mut embedding_bytes = Vec::with_capacity(embedding.len() * 4);
         for val in &embedding {
@@ -147,7 +142,7 @@ impl SearchIndex {
         }
 
         let mut writer = self.writer.lock().await;
-        
+
         // Remove existing document with same URL to avoid duplicates.
         let term = tantivy::Term::from_field_text(self.f_url, &content.url);
         writer.delete_term(term);
@@ -178,29 +173,31 @@ impl SearchIndex {
             let mut model = self.embedding_model.lock().map_err(|e| {
                 SearchXyzError::IndexError(format!("Embedding model mutex poisoned: {e}"))
             })?;
-            model.embed(vec![query_text.as_str()], None)
-                .map_err(|e| SearchXyzError::IndexError(format!("Failed to generate query embedding: {e}")))?
+            model.embed(vec![query_text.as_str()], None).map_err(|e| {
+                SearchXyzError::IndexError(format!("Failed to generate query embedding: {e}"))
+            })?
         };
-        let query_embedding = query_embeddings.into_iter().next().ok_or_else(|| {
-            SearchXyzError::IndexError("No query embedding returned".to_string())
-        })?;
+        let query_embedding = query_embeddings
+            .into_iter()
+            .next()
+            .ok_or_else(|| SearchXyzError::IndexError("No query embedding returned".to_string()))?;
 
         let searcher = self.reader.searcher();
         use tantivy::query::AllQuery;
         let top_docs = searcher
             .search(&AllQuery, &TopDocs::with_limit(10000))
-            .map_err(|e| SearchXyzError::IndexError(format!(
-                "Failed to retrieve candidates for semantic search: {e}"
-            )))?;
+            .map_err(|e| {
+                SearchXyzError::IndexError(format!(
+                    "Failed to retrieve candidates for semantic search: {e}"
+                ))
+            })?;
 
         let mut scored_results = Vec::new();
 
         for (_tantivy_score, doc_address) in top_docs {
             let doc: tantivy::TantivyDocument = searcher
                 .doc(doc_address)
-                .map_err(|e| SearchXyzError::IndexError(format!(
-                    "Failed to retrieve doc: {e}"
-                )))?;
+                .map_err(|e| SearchXyzError::IndexError(format!("Failed to retrieve doc: {e}")))?;
 
             let embedding_val = doc.get_first(self.f_embedding);
             if let Some(bytes_val) = embedding_val.and_then(|v| v.as_bytes()) {
@@ -211,7 +208,8 @@ impl SearchIndex {
                 }
 
                 if doc_embedding.len() == query_embedding.len() {
-                    let score: f32 = query_embedding.iter()
+                    let score: f32 = query_embedding
+                        .iter()
                         .zip(&doc_embedding)
                         .map(|(a, b)| a * b)
                         .sum();
@@ -247,13 +245,16 @@ impl SearchIndex {
                         .replace('\n', " ")
                         .replace("  ", " ");
 
-                    scored_results.push((score, IndexSearchResult {
-                        url,
-                        title,
-                        snippet,
-                        source,
+                    scored_results.push((
                         score,
-                    }));
+                        IndexSearchResult {
+                            url,
+                            title,
+                            snippet,
+                            source,
+                            score,
+                        },
+                    ));
                 }
             }
         }
@@ -279,38 +280,28 @@ impl SearchIndex {
     ) -> Result<Vec<IndexSearchResult>, SearchXyzError> {
         let searcher = self.reader.searcher();
 
-        let query_parser = QueryParser::for_index(
-            &self.index,
-            vec![self.f_title, self.f_content],
-        );
+        let query_parser = QueryParser::for_index(&self.index, vec![self.f_title, self.f_content]);
 
-        let query = query_parser
-            .parse_query(query_str)
-            .map_err(|e| SearchXyzError::IndexError(format!(
-                "Failed to parse query `{query_str}`: {e}"
-            )))?;
+        let query = query_parser.parse_query(query_str).map_err(|e| {
+            SearchXyzError::IndexError(format!("Failed to parse query `{query_str}`: {e}"))
+        })?;
 
         let top_docs = searcher
             .search(&query, &TopDocs::with_limit(max_results))
-            .map_err(|e| SearchXyzError::IndexError(format!(
-                "Search execution failed: {e}"
-            )))?;
+            .map_err(|e| SearchXyzError::IndexError(format!("Search execution failed: {e}")))?;
 
         // ── Build snippet generator for content field ──
         let snippet_generator =
-            tantivy::SnippetGenerator::create(&searcher, &query, self.f_content)
-                .map_err(|e| SearchXyzError::IndexError(format!(
-                    "Snippet generator failed: {e}"
-                )))?;
+            tantivy::SnippetGenerator::create(&searcher, &query, self.f_content).map_err(|e| {
+                SearchXyzError::IndexError(format!("Snippet generator failed: {e}"))
+            })?;
 
         let mut results = Vec::with_capacity(top_docs.len());
 
         for (score, doc_address) in top_docs {
             let doc: tantivy::TantivyDocument = searcher
                 .doc(doc_address)
-                .map_err(|e| SearchXyzError::IndexError(format!(
-                    "Failed to retrieve doc: {e}"
-                )))?;
+                .map_err(|e| SearchXyzError::IndexError(format!("Failed to retrieve doc: {e}")))?;
 
             let url = doc
                 .get_first(self.f_url)
@@ -330,9 +321,7 @@ impl SearchIndex {
                 .unwrap_or("")
                 .to_string();
 
-            let snippet = snippet_generator
-                .snippet_from_doc(&doc)
-                .to_html();
+            let snippet = snippet_generator.snippet_from_doc(&doc).to_html();
 
             results.push(IndexSearchResult {
                 url,
@@ -354,10 +343,13 @@ impl SearchIndex {
         offset: usize,
     ) -> Result<(Vec<SourceEntry>, usize), SearchXyzError> {
         let searcher = self.reader.searcher();
-        
+
         let query: Box<dyn tantivy::query::Query> = if let Some(src) = source_filter {
             let term = tantivy::Term::from_field_text(self.f_source, src);
-            Box::new(tantivy::query::TermQuery::new(term, IndexRecordOption::WithFreqs))
+            Box::new(tantivy::query::TermQuery::new(
+                term,
+                IndexRecordOption::WithFreqs,
+            ))
         } else {
             use tantivy::query::AllQuery;
             Box::new(AllQuery)
@@ -391,7 +383,9 @@ impl SearchIndex {
                 .unwrap_or("")
                 .to_string();
 
-            let date_val = doc.get_first(self.f_indexed_at).and_then(|v| v.as_datetime());
+            let date_val = doc
+                .get_first(self.f_indexed_at)
+                .and_then(|v| v.as_datetime());
             let indexed_at = date_val
                 .and_then(|dt: tantivy::DateTime| {
                     chrono::DateTime::from_timestamp(dt.into_timestamp_secs(), 0)
@@ -399,12 +393,15 @@ impl SearchIndex {
                 .map(|dt| dt.to_rfc3339())
                 .unwrap_or_default();
 
-            entries.push((date_val, SourceEntry {
-                url,
-                title,
-                source,
-                indexed_at,
-            }));
+            entries.push((
+                date_val,
+                SourceEntry {
+                    url,
+                    title,
+                    source,
+                    indexed_at,
+                },
+            ));
         }
 
         // Sort by date descending.
@@ -430,16 +427,14 @@ impl SearchIndex {
         limit: usize,
     ) -> Result<Vec<ExtractedContent>, SearchXyzError> {
         let searcher = self.reader.searcher();
-        
+
         let query: Box<dyn tantivy::query::Query> = if let Some(q) = query_str {
             if q.trim().is_empty() {
                 use tantivy::query::AllQuery;
                 Box::new(AllQuery)
             } else {
-                let query_parser = QueryParser::for_index(
-                    &self.index,
-                    vec![self.f_title, self.f_content],
-                );
+                let query_parser =
+                    QueryParser::for_index(&self.index, vec![self.f_title, self.f_content]);
                 query_parser.parse_query(q).map_err(|e| {
                     SearchXyzError::IndexError(format!("Failed to parse query `{q}`: {e}"))
                 })?
@@ -496,10 +491,8 @@ impl SearchIndex {
     }
 
     /// Delete all documents matching a URL.
-    pub async fn delete_by_url(
-        &self,
-        url: &str,
-    ) -> Result<(), SearchXyzError> {
+    #[allow(dead_code)]
+    pub async fn delete_by_url(&self, url: &str) -> Result<(), SearchXyzError> {
         let term = tantivy::Term::from_field_text(self.f_url, url);
         let mut writer = self.writer.lock().await;
         writer.delete_term(term);
@@ -509,6 +502,7 @@ impl SearchIndex {
     }
 
     /// Reload the index reader to see new updates.
+    #[allow(dead_code)]
     pub fn reload(&self) -> Result<(), SearchXyzError> {
         self.reader.reload().map_err(|e| {
             SearchXyzError::IndexError(format!("Failed to reload index reader: {}", e))
@@ -523,7 +517,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_semantic_search() {
-        let test_dir = std::env::temp_dir().join(format!("searchxyz_test_{}", rand::random::<u64>()));
+        let test_dir =
+            std::env::temp_dir().join(format!("searchxyz_test_{}", rand::random::<u64>()));
         let _ = std::fs::remove_dir_all(&test_dir);
 
         let config = IndexConfig {
@@ -574,7 +569,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_documents() {
-        let test_dir = std::env::temp_dir().join(format!("searchxyz_test_list_{}", rand::random::<u64>()));
+        let test_dir =
+            std::env::temp_dir().join(format!("searchxyz_test_list_{}", rand::random::<u64>()));
         let _ = std::fs::remove_dir_all(&test_dir);
 
         let config = IndexConfig {
@@ -620,7 +616,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_export_documents() {
-        let test_dir = std::env::temp_dir().join(format!("searchxyz_test_export_{}", rand::random::<u64>()));
+        let test_dir =
+            std::env::temp_dir().join(format!("searchxyz_test_export_{}", rand::random::<u64>()));
         let _ = std::fs::remove_dir_all(&test_dir);
 
         let config = IndexConfig {

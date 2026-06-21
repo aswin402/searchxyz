@@ -4,7 +4,7 @@ use tokio::task::JoinSet;
 
 use crate::crawler::Crawler;
 use crate::error::SearchXyzError;
-use crate::extractor::{ExtractionPipeline, ExtractedContent};
+use crate::extractor::{ExtractedContent, ExtractionPipeline};
 use crate::index::SearchIndex;
 use crate::search::{SearchDispatcher, SearchQuery};
 
@@ -87,7 +87,11 @@ impl SearchAndReadPipeline {
                 let fetch_result = crawler.fetch_url(&url, render_js).await?;
 
                 // Extract content.
-                let content = extractor.extract(&url, &fetch_result.body, Some(&fetch_result.content_type))?;
+                let content = extractor.extract(
+                    &url,
+                    &fetch_result.body,
+                    Some(&fetch_result.content_type),
+                )?;
 
                 Ok::<ExtractedContent, SearchXyzError>(content)
             });

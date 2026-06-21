@@ -3,9 +3,9 @@ use reqwest::Client;
 use serde::Deserialize;
 use std::time::Duration;
 
+use super::{SearchBackend, SearchQuery, SearchResult};
 use crate::config::SearXngConfig;
 use crate::error::SearchXyzError;
-use super::{SearchBackend, SearchQuery, SearchResult};
 
 /// SearXNG metasearch API backend.
 pub struct SearXngBackend {
@@ -45,13 +45,11 @@ impl SearchBackend for SearXngBackend {
         !self.config.instance_url.is_empty()
     }
 
-    async fn search(
-        &self,
-        query: &SearchQuery,
-    ) -> Result<Vec<SearchResult>, SearchXyzError> {
+    async fn search(&self, query: &SearchQuery) -> Result<Vec<SearchResult>, SearchXyzError> {
         let base_url = self.config.instance_url.trim_end_matches('/');
-        
-        let mut request = self.client
+
+        let mut request = self
+            .client
             .get(format!("{}/search", base_url))
             .timeout(Duration::from_secs(self.config.timeout_secs))
             .query(&[
@@ -64,12 +62,13 @@ impl SearchBackend for SearXngBackend {
             request = request.query(&[("engines", engines)]);
         }
 
-        let response = request.send().await.map_err(|e| {
-            SearchXyzError::SearchFailed {
+        let response = request
+            .send()
+            .await
+            .map_err(|e| SearchXyzError::SearchFailed {
                 query: query.query.clone(),
                 reason: format!("Failed to reach SearXNG instance: {e}"),
-            }
-        })?;
+            })?;
 
         if !response.status().is_success() {
             return Err(SearchXyzError::SearchFailed {
@@ -78,14 +77,17 @@ impl SearchBackend for SearXngBackend {
             });
         }
 
-        let body: SearXngApiResponse = response.json().await.map_err(|e| {
-            SearchXyzError::SearchFailed {
-                query: query.query.clone(),
-                reason: format!("Failed to parse SearXNG JSON response: {e}"),
-            }
-        })?;
+        let body: SearXngApiResponse =
+            response
+                .json()
+                .await
+                .map_err(|e| SearchXyzError::SearchFailed {
+                    query: query.query.clone(),
+                    reason: format!("Failed to parse SearXNG JSON response: {e}"),
+                })?;
 
-        let results = body.results
+        let results = body
+            .results
             .into_iter()
             .take(query.max_results)
             .map(|r| SearchResult {

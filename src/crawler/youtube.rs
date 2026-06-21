@@ -1,5 +1,5 @@
-use crate::error::SearchXyzError;
 use crate::crawler::Crawler;
+use crate::error::SearchXyzError;
 
 /// Extract the 11-character video ID from various YouTube URL formats.
 pub fn extract_video_id(url: &str) -> Option<String> {
@@ -28,7 +28,8 @@ pub fn find_timedtext_url(html: &str, lang: &str) -> Option<String> {
     let sub = &html[start_idx + marker.len()..];
 
     // Find the end of the JSON block
-    let end_idx = sub.find(";var ")
+    let end_idx = sub
+        .find(";var ")
         .or_else(|| sub.find(";</script>"))
         .or_else(|| sub.find("</script>"))?;
     let mut json_str = sub[..end_idx].trim();
@@ -47,14 +48,20 @@ pub fn find_timedtext_url(html: &str, lang: &str) -> Option<String> {
     for track in caption_tracks {
         if let Some(code) = track.get("languageCode").and_then(|v| v.as_str()) {
             if code == lang {
-                selected_url = track.get("baseUrl").and_then(|v| v.as_str()).map(|s| s.to_string());
+                selected_url = track
+                    .get("baseUrl")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
                 break;
             }
         }
     }
 
     if selected_url.is_none() && !caption_tracks.is_empty() {
-        selected_url = caption_tracks[0].get("baseUrl").and_then(|v| v.as_str()).map(|s| s.to_string());
+        selected_url = caption_tracks[0]
+            .get("baseUrl")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
     }
 
     selected_url
@@ -116,7 +123,10 @@ fn strip_tags(input: &str) -> String {
 }
 
 /// Main orchestrator: extracts video ID, fetches page, extracts caption URL, fetches and parses captions.
-pub async fn fetch_youtube_transcript(crawler: &Crawler, url: &str) -> Result<String, SearchXyzError> {
+pub async fn fetch_youtube_transcript(
+    crawler: &Crawler,
+    url: &str,
+) -> Result<String, SearchXyzError> {
     let video_id = extract_video_id(url).ok_or_else(|| SearchXyzError::CrawlFailed {
         url: url.to_string(),
         reason: "Invalid YouTube URL: could not parse Video ID".to_string(),
@@ -125,10 +135,11 @@ pub async fn fetch_youtube_transcript(crawler: &Crawler, url: &str) -> Result<St
     let watch_url = format!("https://www.youtube.com/watch?v={}", video_id);
     let result = crawler.fetch_url(&watch_url, false).await?;
 
-    let timedtext_url = find_timedtext_url(&result.body, "en").ok_or_else(|| SearchXyzError::CrawlFailed {
-        url: url.to_string(),
-        reason: "No captions or transcript tracks found for this video".to_string(),
-    })?;
+    let timedtext_url =
+        find_timedtext_url(&result.body, "en").ok_or_else(|| SearchXyzError::CrawlFailed {
+            url: url.to_string(),
+            reason: "No captions or transcript tracks found for this video".to_string(),
+        })?;
 
     let xml_result = crawler.fetch_url(&timedtext_url, false).await?;
     let transcript = parse_xml_transcript(&xml_result.body);
@@ -149,10 +160,22 @@ mod tests {
 
     #[test]
     fn test_extract_video_id() {
-        assert_eq!(extract_video_id("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), Some("dQw4w9WgXcQ".to_string()));
-        assert_eq!(extract_video_id("https://youtube.com/watch?v=dQw4w9WgXcQ&feature=share"), Some("dQw4w9WgXcQ".to_string()));
-        assert_eq!(extract_video_id("https://youtu.be/dQw4w9WgXcQ"), Some("dQw4w9WgXcQ".to_string()));
-        assert_eq!(extract_video_id("https://example.com/watch?v=dQw4w9WgXcQ"), None);
+        assert_eq!(
+            extract_video_id("https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
+            Some("dQw4w9WgXcQ".to_string())
+        );
+        assert_eq!(
+            extract_video_id("https://youtube.com/watch?v=dQw4w9WgXcQ&feature=share"),
+            Some("dQw4w9WgXcQ".to_string())
+        );
+        assert_eq!(
+            extract_video_id("https://youtu.be/dQw4w9WgXcQ"),
+            Some("dQw4w9WgXcQ".to_string())
+        );
+        assert_eq!(
+            extract_video_id("https://example.com/watch?v=dQw4w9WgXcQ"),
+            None
+        );
     }
 
     #[test]
@@ -165,13 +188,16 @@ mod tests {
                 <text start="3.5" dur="1.0"></text>
             </transcript>
         "#;
-        assert_eq!(parse_xml_transcript(xml), "Hello & welcome! This is subtitles.");
+        assert_eq!(
+            parse_xml_transcript(xml),
+            "Hello & welcome! This is subtitles."
+        );
     }
 
     #[tokio::test]
     async fn test_fetch_youtube_transcript_cached() {
-        use crate::config::{CrawlerConfig, HeadlessConfig, ProxyConfig};
         use crate::cache::{Cache, CacheEntry};
+        use crate::config::{CrawlerConfig, HeadlessConfig, ProxyConfig};
         use std::sync::Arc;
         use tokio::sync::Mutex;
 
@@ -214,7 +240,8 @@ mod tests {
                     <transcript>
                         <text start="0.0">Never gonna give you up</text>
                     </transcript>
-                    "#.to_string(),
+                    "#
+                    .to_string(),
                     "https://www.youtube.com/api/timedtext?v=dQw4w9WgXcQ&lang=en".to_string(),
                 ),
             );
@@ -227,7 +254,10 @@ mod tests {
             cache,
         );
 
-        let transcript = fetch_youtube_transcript(&crawler, "https://www.youtube.com/watch?v=dQw4w9WgXcQ").await.unwrap();
+        let transcript =
+            fetch_youtube_transcript(&crawler, "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+                .await
+                .unwrap();
         assert_eq!(transcript, "Never gonna give you up");
     }
 }

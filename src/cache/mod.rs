@@ -1,9 +1,9 @@
-use std::time::Duration;
-use chrono::{DateTime, Utc};
-use serde::{Serialize, Deserialize};
-use lru::LruCache;
-use std::num::NonZeroUsize;
 use crate::error::SearchXyzError;
+use chrono::{DateTime, Utc};
+use lru::LruCache;
+use serde::{Deserialize, Serialize};
+use std::num::NonZeroUsize;
+use std::time::Duration;
 
 /// A single cached page.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -56,11 +56,7 @@ impl Cache {
     }
 
     /// Load cache from a JSON file, or start empty if the file is missing/corrupted.
-    pub fn load_from_file(
-        max_entries: usize,
-        ttl_secs: u64,
-        path: &std::path::Path,
-    ) -> Self {
+    pub fn load_from_file(max_entries: usize, ttl_secs: u64, path: &std::path::Path) -> Self {
         let mut cache = Self::new(max_entries, ttl_secs);
         if !path.exists() {
             return cache;

@@ -51,11 +51,12 @@ impl ExtractionPipeline {
     ) -> Result<ExtractedContent, SearchXyzError> {
         if let Some(ct) = content_type {
             if ct.contains("application/pdf") {
-                let title = url.split('/')
-                    .last()
-                    .unwrap_or("PDF Document")
-                    .trim();
-                let title = if title.is_empty() { "PDF Document" } else { title };
+                let title = url.split('/').next_back().unwrap_or("PDF Document").trim();
+                let title = if title.is_empty() {
+                    "PDF Document"
+                } else {
+                    title
+                };
 
                 return Ok(ExtractedContent {
                     url: url.into(),
@@ -179,9 +180,19 @@ impl ExtractionPipeline {
                     let tag = el.name();
                     let is_block = matches!(
                         tag,
-                        "p" | "div" | "br" | "h1" | "h2" | "h3"
-                            | "h4" | "h5" | "h6" | "li" | "tr"
-                            | "blockquote" | "pre" | "hr"
+                        "p" | "div"
+                            | "br"
+                            | "h1"
+                            | "h2"
+                            | "h3"
+                            | "h4"
+                            | "h5"
+                            | "h6"
+                            | "li"
+                            | "tr"
+                            | "blockquote"
+                            | "pre"
+                            | "hr"
                     );
                     if is_block {
                         out.push('\n');
@@ -242,7 +253,7 @@ impl ExtractionPipeline {
     fn extract_links(&self, doc: &Html, base_url: &str) -> Vec<String> {
         let sel = Selector::parse("a[href]").unwrap();
         let base = url::Url::parse(base_url).ok();
-        
+
         doc.select(&sel)
             .filter_map(|el| {
                 let href = el.value().attr("href")?;
@@ -264,11 +275,13 @@ mod tests {
     fn test_pdf_extraction_bypass() {
         let config = ExtractorConfig::default();
         let pipeline = ExtractionPipeline::new(config);
-        
+
         let url = "https://example.com/document.pdf";
         let body = "Hello World! This is extracted PDF text.";
-        let res = pipeline.extract(url, body, Some("application/pdf")).unwrap();
-        
+        let res = pipeline
+            .extract(url, body, Some("application/pdf"))
+            .unwrap();
+
         assert_eq!(res.title, "document.pdf");
         assert_eq!(res.content_markdown, body);
         assert!(res.links.is_empty());
@@ -276,8 +289,8 @@ mod tests {
 
     #[test]
     fn test_pdf_parsing() {
-        use lopdf::{dictionary, Document, Object, Stream};
         use lopdf::content::{Content, Operation};
+        use lopdf::{dictionary, Document, Object, Stream};
 
         let mut doc = Document::with_version("1.5");
         let pages_id = doc.new_object_id();

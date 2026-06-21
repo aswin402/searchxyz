@@ -1,14 +1,16 @@
 use std::sync::Arc;
 
-use rmcp::{tool, tool_router, handler::server::tool::ToolRouter, handler::server::wrapper::Parameters};
 use rmcp::schemars::JsonSchema;
+use rmcp::{
+    handler::server::tool::ToolRouter, handler::server::wrapper::Parameters, tool, tool_router,
+};
 use serde::Deserialize;
 use tokio::sync::Mutex;
 
 use crate::cache::Cache;
 use crate::config::Config;
 use crate::crawler::Crawler;
-use crate::extractor::{ExtractionPipeline, ExtractedContent};
+use crate::extractor::{ExtractedContent, ExtractionPipeline};
 use crate::index::SearchIndex;
 use crate::pipeline::SearchAndReadPipeline;
 use crate::search::{SearchDispatcher, SearchQuery};
@@ -27,9 +29,13 @@ pub struct SearchWebRequest {
 pub struct ReadUrlRequest {
     #[schemars(description = "The full URL to fetch (must start with http:// or https://)")]
     pub url: String,
-    #[schemars(description = "Crawl depth for recursive scoping. Defaults to 1 (only target URL). Max is 3.")]
+    #[schemars(
+        description = "Crawl depth for recursive scoping. Defaults to 1 (only target URL). Max is 3."
+    )]
     pub depth: Option<usize>,
-    #[schemars(description = "Enable JavaScript rendering with a headless browser for dynamic or JS-heavy websites.")]
+    #[schemars(
+        description = "Enable JavaScript rendering with a headless browser for dynamic or JS-heavy websites."
+    )]
     pub render_js: Option<bool>,
 }
 
@@ -39,7 +45,9 @@ pub struct SearchAndReadRequest {
     pub query: String,
     #[schemars(description = "How many top results to read (default: 3, max: 5)")]
     pub max_pages: Option<usize>,
-    #[schemars(description = "Enable JavaScript rendering with a headless browser for dynamic or JS-heavy websites.")]
+    #[schemars(
+        description = "Enable JavaScript rendering with a headless browser for dynamic or JS-heavy websites."
+    )]
     pub render_js: Option<bool>,
 }
 
@@ -49,7 +57,9 @@ pub struct RecallRequest {
     pub query: String,
     #[schemars(description = "Max results (default: 5)")]
     pub max_results: Option<usize>,
-    #[schemars(description = "Perform a semantic vector search instead of strict BM25 keyword matching (default: true).")]
+    #[schemars(
+        description = "Perform a semantic vector search instead of strict BM25 keyword matching (default: true)."
+    )]
     pub semantic: Option<bool>,
 }
 
@@ -71,7 +81,9 @@ pub struct DeepResearchRequest {
     pub breadth: Option<usize>,
     #[schemars(description = "How many top pages to crawl per sub-query (default: 2, max: 4)")]
     pub max_pages_per_query: Option<usize>,
-    #[schemars(description = "Enable JavaScript rendering with a headless browser for dynamic or JS-heavy websites.")]
+    #[schemars(
+        description = "Enable JavaScript rendering with a headless browser for dynamic or JS-heavy websites."
+    )]
     pub render_js: Option<bool>,
 }
 
@@ -93,7 +105,9 @@ pub struct SiteMapRequest {
     pub use_sitemap: Option<bool>,
     #[schemars(description = "Fallback to spider crawling of internal links (default: true)")]
     pub crawl_links: Option<bool>,
-    #[schemars(description = "Maximum number of discovered links to return (default: 100, max: 500)")]
+    #[schemars(
+        description = "Maximum number of discovered links to return (default: 100, max: 500)"
+    )]
     pub max_links: Option<usize>,
 }
 
@@ -121,21 +135,33 @@ pub struct QueryGraphRequest {
 
 #[derive(Deserialize, JsonSchema)]
 pub struct ReadGithubRepoRequest {
-    #[schemars(description = "The GitHub repository URL (e.g. 'https://github.com/tokio-rs/tokio')")]
+    #[schemars(
+        description = "The GitHub repository URL (e.g. 'https://github.com/tokio-rs/tokio')"
+    )]
     pub repo_url: String,
-    #[schemars(description = "Optional branch name (e.g. 'master', 'main'). Defaults to the default branch.")]
+    #[schemars(
+        description = "Optional branch name (e.g. 'master', 'main'). Defaults to the default branch."
+    )]
     pub branch: Option<String>,
-    #[schemars(description = "Optional list of file extensions to include (e.g. ['rs', 'md']). Defaults to standard code/text extensions.")]
+    #[schemars(
+        description = "Optional list of file extensions to include (e.g. ['rs', 'md']). Defaults to standard code/text extensions."
+    )]
     pub include_extensions: Option<Vec<String>>,
-    #[schemars(description = "Optional list of folder/file paths to ignore. Defaults to standard ignore folders (target, node_modules, etc.).")]
+    #[schemars(
+        description = "Optional list of folder/file paths to ignore. Defaults to standard ignore folders (target, node_modules, etc.)."
+    )]
     pub exclude_paths: Option<Vec<String>>,
 }
 
 #[derive(Deserialize, JsonSchema)]
 pub struct ExportResearchRequest {
-    #[schemars(description = "Optional query to filter exported documents. If omitted, all documents are exported.")]
+    #[schemars(
+        description = "Optional query to filter exported documents. If omitted, all documents are exported."
+    )]
     pub query: Option<String>,
-    #[schemars(description = "Optional limit on how many documents to export (default 50, max 200).")]
+    #[schemars(
+        description = "Optional limit on how many documents to export (default 50, max 200)."
+    )]
     pub limit: Option<usize>,
 }
 
@@ -152,10 +178,6 @@ pub struct ResearchBundle {
     pub documents: Vec<ExtractedContent>,
     pub graph: crate::graph::KnowledgeGraph,
 }
-
-
-
-
 
 // ─────────────────────────────────────────────────────────────
 // MCP Search Server
@@ -197,8 +219,13 @@ impl SearchXyzServer {
         }
     }
 
-    #[tool(description = "Search the web for a query. Returns titles, URLs, and snippets. Use for finding pages on any topic.")]
-    async fn search_web(&self, req: Parameters<SearchWebRequest>) -> Result<String, rmcp::ErrorData> {
+    #[tool(
+        description = "Search the web for a query. Returns titles, URLs, and snippets. Use for finding pages on any topic."
+    )]
+    async fn search_web(
+        &self,
+        req: Parameters<SearchWebRequest>,
+    ) -> Result<String, rmcp::ErrorData> {
         let max = req.0.max_results.unwrap_or(10).min(20);
         let search_query = SearchQuery {
             query: req.0.query.clone(),
@@ -223,11 +250,16 @@ impl SearchXyzServer {
         Ok(text)
     }
 
-    #[tool(description = "Fetch a URL and extract its content as clean markdown. Strips ads, nav, scripts. Returns page title and readable text.")]
+    #[tool(
+        description = "Fetch a URL and extract its content as clean markdown. Strips ads, nav, scripts. Returns page title and readable text."
+    )]
     async fn read_url(&self, req: Parameters<ReadUrlRequest>) -> Result<String, rmcp::ErrorData> {
         let url = &req.0.url;
         if !url.starts_with("http://") && !url.starts_with("https://") {
-            return Err(rmcp::ErrorData::invalid_params("URL must start with http:// or https://", None));
+            return Err(rmcp::ErrorData::invalid_params(
+                "URL must start with http:// or https://",
+                None,
+            ));
         }
 
         let depth = req.0.depth.unwrap_or(1).min(3);
@@ -235,7 +267,8 @@ impl SearchXyzServer {
 
         // ── Check for YouTube video URLs ──
         if crate::crawler::youtube::extract_video_id(url).is_some() {
-            let transcript = crate::crawler::youtube::fetch_youtube_transcript(&self.crawler, url).await?;
+            let transcript =
+                crate::crawler::youtube::fetch_youtube_transcript(&self.crawler, url).await?;
             let title = format!("YouTube Video Transcript - {}", url);
             let extracted = ExtractedContent {
                 url: url.clone(),
@@ -272,14 +305,16 @@ impl SearchXyzServer {
                 None,
                 None,
                 None,
-            ).await?;
+            )
+            .await?;
             return Ok(summary);
         }
 
         if depth > 1 {
-            let spider = crate::crawler::spider::Spider::new(self.crawler.clone(), self.extractor.clone());
+            let spider =
+                crate::crawler::spider::Spider::new(self.crawler.clone(), self.extractor.clone());
             let crawled_pages = spider.crawl(url, depth, render_js).await?;
-            
+
             // Index successful crawled pages
             for page in &crawled_pages {
                 if let Err(e) = self.index.add_document(page, "spider").await {
@@ -304,7 +339,11 @@ impl SearchXyzServer {
             Ok(text)
         } else {
             let fetch_result = self.crawler.fetch_url(url, render_js).await?;
-            let content = self.extractor.extract(url, &fetch_result.body, Some(&fetch_result.content_type))?;
+            let content = self.extractor.extract(
+                url,
+                &fetch_result.body,
+                Some(&fetch_result.content_type),
+            )?;
 
             // Index the single crawled page too!
             if let Err(e) = self.index.add_document(&content, "read_url").await {
@@ -325,8 +364,13 @@ impl SearchXyzServer {
         }
     }
 
-    #[tool(description = "Search the web AND read the top results. Returns full page content for each result. Best for research tasks.")]
-    async fn search_and_read(&self, req: Parameters<SearchAndReadRequest>) -> Result<String, rmcp::ErrorData> {
+    #[tool(
+        description = "Search the web AND read the top results. Returns full page content for each result. Best for research tasks."
+    )]
+    async fn search_and_read(
+        &self,
+        req: Parameters<SearchAndReadRequest>,
+    ) -> Result<String, rmcp::ErrorData> {
         let max = req.0.max_pages.unwrap_or(3).min(5);
         let render_js = req.0.render_js.unwrap_or(false);
         let pipeline = SearchAndReadPipeline::new(
@@ -349,7 +393,9 @@ impl SearchXyzServer {
         Ok(text)
     }
 
-    #[tool(description = "Search your local knowledge base of previously read pages. Use to find information from earlier research.")]
+    #[tool(
+        description = "Search your local knowledge base of previously read pages. Use to find information from earlier research."
+    )]
     async fn recall(&self, req: Parameters<RecallRequest>) -> Result<String, rmcp::ErrorData> {
         let max = req.0.max_results.unwrap_or(5);
         let use_semantic = req.0.semantic.unwrap_or(true);
@@ -378,8 +424,13 @@ impl SearchXyzServer {
         Ok(text)
     }
 
-    #[tool(description = "List all documents and cached pages in the local knowledge base with metadata.")]
-    async fn list_sources(&self, req: Parameters<ListSourcesRequest>) -> Result<String, rmcp::ErrorData> {
+    #[tool(
+        description = "List all documents and cached pages in the local knowledge base with metadata."
+    )]
+    async fn list_sources(
+        &self,
+        req: Parameters<ListSourcesRequest>,
+    ) -> Result<String, rmcp::ErrorData> {
         let source_filter = req.0.source.as_deref();
         let limit = req.0.limit.unwrap_or(50).min(100);
         let offset = req.0.offset.unwrap_or(0);
@@ -405,8 +456,13 @@ impl SearchXyzServer {
         Ok(output)
     }
 
-    #[tool(description = "Expand a query into multiple sub-queries, fetch and crawl their results in parallel, index all findings locally, and return a compiled markdown research report.")]
-    async fn deep_research(&self, req: Parameters<DeepResearchRequest>) -> Result<String, rmcp::ErrorData> {
+    #[tool(
+        description = "Expand a query into multiple sub-queries, fetch and crawl their results in parallel, index all findings locally, and return a compiled markdown research report."
+    )]
+    async fn deep_research(
+        &self,
+        req: Parameters<DeepResearchRequest>,
+    ) -> Result<String, rmcp::ErrorData> {
         let query = &req.0.query;
         let breadth = req.0.breadth.unwrap_or(3).min(5);
         let max_pages = req.0.max_pages_per_query.unwrap_or(2).min(4);
@@ -446,7 +502,10 @@ impl SearchXyzServer {
                     if pages.is_empty() {
                         output.push_str("   *No new pages crawled successfully.*\n\n");
                     } else {
-                        output.push_str(&format!("   *Successfully retrieved {} pages.*\n\n", pages.len()));
+                        output.push_str(&format!(
+                            "   *Successfully retrieved {} pages.*\n\n",
+                            pages.len()
+                        ));
                         for page in pages {
                             // Avoid duplicate display by grouping/storing globally in a map.
                             all_pages.insert(page.url.clone(), page);
@@ -462,21 +521,32 @@ impl SearchXyzServer {
         }
 
         if all_pages.is_empty() {
-            return Ok(format!("Deep Research failed to retrieve any results for the topic `{}`.", query));
+            return Ok(format!(
+                "Deep Research failed to retrieve any results for the topic `{}`.",
+                query
+            ));
         }
 
         output.push_str(&format!("*Summary: Executed {} sub-queries successfully, retrieving a total of {} unique pages.*\n\n", executed_count, all_pages.len()));
 
         output.push_str("---\n## Compiled Research Documents\n\n");
         for (url, page) in all_pages {
-            output.push_str(&format!("### {}\n- **Source URL:** {}\n\n{}\n\n", page.title, url, page.content_markdown));
+            output.push_str(&format!(
+                "### {}\n- **Source URL:** {}\n\n{}\n\n",
+                page.title, url, page.content_markdown
+            ));
         }
 
         Ok(output)
     }
 
-    #[tool(description = "Store text in the local knowledge base for later recall. Useful for saving important research findings.")]
-    async fn index_content(&self, req: Parameters<IndexContentRequest>) -> Result<String, rmcp::ErrorData> {
+    #[tool(
+        description = "Store text in the local knowledge base for later recall. Useful for saving important research findings."
+    )]
+    async fn index_content(
+        &self,
+        req: Parameters<IndexContentRequest>,
+    ) -> Result<String, rmcp::ErrorData> {
         let extracted = ExtractedContent {
             url: req.0.url.clone(),
             title: req.0.title.clone(),
@@ -496,11 +566,16 @@ impl SearchXyzServer {
         Ok(format!("Successfully indexed content for `{}`", req.0.url))
     }
 
-    #[tool(description = "Map a website's structure by discovering all internal page URLs using sitemap.xml and/or fast recursive link crawling, without extracting page content.")]
+    #[tool(
+        description = "Map a website's structure by discovering all internal page URLs using sitemap.xml and/or fast recursive link crawling, without extracting page content."
+    )]
     async fn site_map(&self, req: Parameters<SiteMapRequest>) -> Result<String, rmcp::ErrorData> {
         let url = &req.0.url;
         if !url.starts_with("http://") && !url.starts_with("https://") {
-            return Err(rmcp::ErrorData::invalid_params("URL must start with http:// or https://", None));
+            return Err(rmcp::ErrorData::invalid_params(
+                "URL must start with http:// or https://",
+                None,
+            ));
         }
 
         let use_sitemap = req.0.use_sitemap.unwrap_or(true);
@@ -561,8 +636,13 @@ impl SearchXyzServer {
         Ok(output)
     }
 
-    #[tool(description = "Store a semantic connection (edge) between two entities in the knowledge graph. Helps build custom knowledge associations.")]
-    async fn index_relationship(&self, req: Parameters<IndexRelationshipRequest>) -> Result<String, rmcp::ErrorData> {
+    #[tool(
+        description = "Store a semantic connection (edge) between two entities in the knowledge graph. Helps build custom knowledge associations."
+    )]
+    async fn index_relationship(
+        &self,
+        req: Parameters<IndexRelationshipRequest>,
+    ) -> Result<String, rmcp::ErrorData> {
         {
             let mut graph = self.graph.lock().await;
             graph.add_edge(
@@ -580,8 +660,13 @@ impl SearchXyzServer {
         ))
     }
 
-    #[tool(description = "Query the local knowledge graph to discover entities and relationships connected to a starting concept, technology, or document.")]
-    async fn query_graph(&self, req: Parameters<QueryGraphRequest>) -> Result<String, rmcp::ErrorData> {
+    #[tool(
+        description = "Query the local knowledge graph to discover entities and relationships connected to a starting concept, technology, or document."
+    )]
+    async fn query_graph(
+        &self,
+        req: Parameters<QueryGraphRequest>,
+    ) -> Result<String, rmcp::ErrorData> {
         let start = &req.0.entity;
         let depth = req.0.max_depth.unwrap_or(2).min(4);
 
@@ -591,10 +676,16 @@ impl SearchXyzServer {
         };
 
         if nodes.is_empty() {
-            return Ok(format!("Entity `{}` not found in the knowledge graph.", start));
+            return Ok(format!(
+                "Entity `{}` not found in the knowledge graph.",
+                start
+            ));
         }
 
-        let mut output = format!("### Knowledge Graph Query for `{}` (Depth: {})\n\n", start, depth);
+        let mut output = format!(
+            "### Knowledge Graph Query for `{}` (Depth: {})\n\n",
+            start, depth
+        );
 
         output.push_str("#### Entities:\n");
         for n in &nodes {
@@ -606,15 +697,23 @@ impl SearchXyzServer {
             output.push_str("No active connections found.\n");
         } else {
             for e in &edges {
-                output.push_str(&format!("- **{}** -[{}]-> **{}**\n", e.source, e.relationship_type, e.target));
+                output.push_str(&format!(
+                    "- **{}** -[{}]-> **{}**\n",
+                    e.source, e.relationship_type, e.target
+                ));
             }
         }
 
         Ok(output)
     }
 
-    #[tool(description = "Clone and index a GitHub repository, parsing its files and README into the local knowledge base and returning a markdown summary of the codebase.")]
-    async fn read_github_repo(&self, req: Parameters<ReadGithubRepoRequest>) -> Result<String, rmcp::ErrorData> {
+    #[tool(
+        description = "Clone and index a GitHub repository, parsing its files and README into the local knowledge base and returning a markdown summary of the codebase."
+    )]
+    async fn read_github_repo(
+        &self,
+        req: Parameters<ReadGithubRepoRequest>,
+    ) -> Result<String, rmcp::ErrorData> {
         let include_exts = req.0.include_extensions.as_deref();
         let exclude_paths = req.0.exclude_paths.as_deref();
         let summary = crate::crawler::github::clone_and_index_repo(
@@ -624,62 +723,82 @@ impl SearchXyzServer {
             req.0.branch.as_deref(),
             include_exts,
             exclude_paths,
-        ).await?;
+        )
+        .await?;
         Ok(summary)
     }
 
-    #[tool(description = "Export indexed documents and knowledge graph relationships connected to a research topic into a portable JSON bundle.")]
-    async fn export_research(&self, req: Parameters<ExportResearchRequest>) -> Result<String, rmcp::ErrorData> {
+    #[tool(
+        description = "Export indexed documents and knowledge graph relationships connected to a research topic into a portable JSON bundle."
+    )]
+    async fn export_research(
+        &self,
+        req: Parameters<ExportResearchRequest>,
+    ) -> Result<String, rmcp::ErrorData> {
         let limit = req.0.limit.unwrap_or(50).min(200);
         let documents = self.index.export_documents(req.0.query.as_deref(), limit)?;
-        
+
         let graph = {
             let g = self.graph.lock().await;
             g.clone()
         };
-        
+
         let bundle = ResearchBundle {
             version: "1.0".to_string(),
             exported_at: chrono::Utc::now().to_rfc3339(),
             documents,
             graph,
         };
-        
+
         let json = serde_json::to_string_pretty(&bundle).map_err(|e| {
-            rmcp::ErrorData::internal_error(format!("Failed to serialize research bundle: {}", e), None)
+            rmcp::ErrorData::internal_error(
+                format!("Failed to serialize research bundle: {}", e),
+                None,
+            )
         })?;
-        
+
         Ok(json)
     }
 
-    #[tool(description = "Import a research bundle payload into the local index and knowledge graph.")]
-    async fn import_research(&self, req: Parameters<ImportResearchRequest>) -> Result<String, rmcp::ErrorData> {
+    #[tool(
+        description = "Import a research bundle payload into the local index and knowledge graph."
+    )]
+    async fn import_research(
+        &self,
+        req: Parameters<ImportResearchRequest>,
+    ) -> Result<String, rmcp::ErrorData> {
         let bundle: ResearchBundle = serde_json::from_str(&req.0.payload).map_err(|e| {
             rmcp::ErrorData::invalid_params(format!("Invalid research bundle payload: {}", e), None)
         })?;
-        
+
         let doc_count = bundle.documents.len();
-        
+
         for doc in &bundle.documents {
             // Index the document locally (this also generates local semantic vector embeddings!)
             if let Err(e) = self.index.add_document(doc, "imported").await {
                 tracing::warn!(url = %doc.url, error = %e, "Failed to index imported document (non-fatal)");
             }
         }
-        
+
         // Merge the imported nodes and edges into the local knowledge graph
         let mut graph_edges_count = 0;
         {
             let mut g = self.graph.lock().await;
             for edge in &bundle.graph.edges {
                 // Find node types from bundle node map if available
-                let source_type = bundle.graph.nodes.get(&edge.source)
+                let source_type = bundle
+                    .graph
+                    .nodes
+                    .get(&edge.source)
                     .map(|n| n.entity_type.clone())
                     .unwrap_or_else(|| "Concept".to_string());
-                let target_type = bundle.graph.nodes.get(&edge.target)
+                let target_type = bundle
+                    .graph
+                    .nodes
+                    .get(&edge.target)
                     .map(|n| n.entity_type.clone())
                     .unwrap_or_else(|| "Concept".to_string());
-                
+
                 g.add_edge(
                     edge.source.clone(),
                     source_type,
@@ -689,13 +808,13 @@ impl SearchXyzServer {
                 );
                 graph_edges_count += 1;
             }
-            
+
             // Also merge any standalone nodes
             for (name, node) in &bundle.graph.nodes {
                 g.add_node(name.clone(), node.entity_type.clone());
             }
         }
-        
+
         Ok(format!(
             "### Import Summary\n\n\
             - **Documents Imported:** {}\n\
@@ -707,7 +826,7 @@ impl SearchXyzServer {
 }
 
 fn expand_query(query: &str, breadth: usize) -> Vec<String> {
-    let modifiers = vec![
+    let modifiers = [
         "",
         "documentation libraries",
         "examples tutorials guide",
@@ -733,14 +852,15 @@ fn expand_query(query: &str, breadth: usize) -> Vec<String> {
 mod tests {
     use super::*;
     use crate::config::{Config, IndexConfig};
-    use crate::index::SearchIndex;
     use crate::graph::KnowledgeGraph;
-    use tokio::sync::Mutex;
+    use crate::index::SearchIndex;
     use std::sync::Arc;
+    use tokio::sync::Mutex;
 
     #[tokio::test]
     async fn test_export_import_research() {
-        let test_dir = std::env::temp_dir().join(format!("searchxyz_test_tools_{}", rand::random::<u64>()));
+        let test_dir =
+            std::env::temp_dir().join(format!("searchxyz_test_tools_{}", rand::random::<u64>()));
         let _ = std::fs::remove_dir_all(&test_dir);
 
         let index_config = IndexConfig {
@@ -766,9 +886,11 @@ mod tests {
         {
             let mut g = graph.lock().await;
             g.add_edge(
-                "AgentA".to_string(), "Agent".to_string(),
-                "AgentB".to_string(), "Agent".to_string(),
-                "shares_with".to_string()
+                "AgentA".to_string(),
+                "Agent".to_string(),
+                "AgentB".to_string(),
+                "Agent".to_string(),
+                "shares_with".to_string(),
             );
         }
 
@@ -790,10 +912,13 @@ mod tests {
         );
 
         // Test export
-        let json_payload = server.export_research(Parameters(ExportResearchRequest {
-            query: None,
-            limit: None,
-        })).await.unwrap();
+        let json_payload = server
+            .export_research(Parameters(ExportResearchRequest {
+                query: None,
+                limit: None,
+            }))
+            .await
+            .unwrap();
 
         // Verify json payload structure
         let bundle: ResearchBundle = serde_json::from_str(&json_payload).unwrap();
@@ -803,7 +928,10 @@ mod tests {
         assert_eq!(bundle.graph.edges[0].relationship_type, "shares_with");
 
         // Clean database/graph for import test
-        let clean_dir = std::env::temp_dir().join(format!("searchxyz_test_tools_clean_{}", rand::random::<u64>()));
+        let clean_dir = std::env::temp_dir().join(format!(
+            "searchxyz_test_tools_clean_{}",
+            rand::random::<u64>()
+        ));
         let _ = std::fs::remove_dir_all(&clean_dir);
 
         let clean_index_config = IndexConfig {
@@ -830,9 +958,12 @@ mod tests {
         );
 
         // Import payload
-        let result = clean_server.import_research(Parameters(ImportResearchRequest {
-            payload: json_payload,
-        })).await.unwrap();
+        let result = clean_server
+            .import_research(Parameters(ImportResearchRequest {
+                payload: json_payload,
+            }))
+            .await
+            .unwrap();
 
         assert!(result.contains("Documents Imported:** 1"));
         assert!(result.contains("Knowledge Graph Connections Merged:** 1"));
