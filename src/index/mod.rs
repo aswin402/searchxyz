@@ -16,7 +16,7 @@ use crate::extractor::ExtractedContent;
 pub struct SearchIndex {
     index: Index,
     reader: IndexReader,
-    writer: Arc<Mutex<IndexWriter>>,
+    pub(crate) writer: Arc<Mutex<IndexWriter>>,
     embedding_model: std::sync::Mutex<TextEmbedding>,
     // Schema field handles — kept for building docs & queries.
     f_url: Field,

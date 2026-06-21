@@ -171,6 +171,15 @@ pub struct ImportResearchRequest {
     pub payload: String,
 }
 
+#[derive(Deserialize, JsonSchema)]
+pub struct DeleteSourceRequest {
+    #[schemars(description = "The source URL to delete from the search index and knowledge graph.")]
+    pub url: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+pub struct ClearIndexRequest {}
+
 #[derive(serde::Serialize, serde::Deserialize, rmcp::schemars::JsonSchema)]
 pub struct ResearchBundle {
     pub version: String,
@@ -828,6 +837,38 @@ impl SearchXyzServer {
             doc_count, graph_edges_count
         ))
     }
+
+    #[tool(
+        description = "Wipe a specific source URL and its chunks from index and knowledge graph."
+    )]
+    async fn delete_source(
+        &self,
+        req: Parameters<DeleteSourceRequest>,
+    ) -> Result<String, rmcp::ErrorData> {
+        self.index.delete_document(&req.0.url).await?;
+        {
+            let mut g = self.graph.lock().await;
+            g.prune_node(&req.0.url);
+        }
+        Ok(format!("Successfully deleted source `{}`", req.0.url))
+    }
+
+    #[tool(
+        description = "Wipe all documents and graph relationships from the local index."
+    )]
+    async fn clear_index(
+        &self,
+        req: Parameters<ClearIndexRequest>,
+    ) -> Result<String, rmcp::ErrorData> {
+        let mut writer = self.index.writer.lock().await;
+        writer.delete_all_documents().map_err(crate::error::SearchXyzError::from)?;
+        writer.commit().map_err(crate::error::SearchXyzError::from)?;
+        {
+            let mut g = self.graph.lock().await;
+            g.clear();
+        }
+        Ok("Successfully cleared search index and knowledge graph.".to_string())
+    }
 }
 
 fn expand_query(query: &str, breadth: usize) -> Vec<String> {
@@ -988,5 +1029,127 @@ mod tests {
 
         let _ = std::fs::remove_dir_all(&test_dir);
         let _ = std::fs::remove_dir_all(&clean_dir);
+    }
+
+    #[tokio::test]
+    async fn test_db_maintenance_tools() {
+        let test_dir =
+            std::env::temp_dir().join(format!("searchxyz_test_tools_maint_{}", rand::random::<u64>()));
+        let _ = std::fs::remove_dir_all(&test_dir);
+
+        let index_config = IndexConfig {
+            path: test_dir.clone(),
+            writer_heap_bytes: 15_000_000,
+        };
+
+        let index = SearchIndex::open(&index_config).unwrap();
+        let graph = Arc::new(Mutex::new(KnowledgeGraph::new()));
+
+        // Add dummy document
+        let doc1 = ExtractedContent {
+            url: "https://example.com/doc1".to_string(),
+            title: "Doc 1".to_string(),
+            description: "".to_string(),
+            content_markdown: "Rust programming language.".to_string(),
+            links: vec![],
+        };
+        index.add_document(&doc1, "manual").await.unwrap();
+
+        let doc2 = ExtractedContent {
+            url: "https://example.com/doc2".to_string(),
+            title: "Doc 2".to_string(),
+            description: "".to_string(),
+            content_markdown: "Python programming language.".to_string(),
+            links: vec![],
+        };
+        index.add_document(&doc2, "manual").await.unwrap();
+        index.reload().unwrap();
+
+        // Add graph connections
+        {
+            let mut g = graph.lock().await;
+            g.add_edge(
+                "https://example.com/doc1".to_string(),
+                "Document".to_string(),
+                "Rust".to_string(),
+                "Concept".to_string(),
+                "mentions".to_string(),
+            );
+            g.add_edge(
+                "https://example.com/doc2".to_string(),
+                "Document".to_string(),
+                "Python".to_string(),
+                "Concept".to_string(),
+                "mentions".to_string(),
+            );
+        }
+
+        // Create server
+        let cache = Arc::new(Mutex::new(crate::cache::Cache::new(10, 60)));
+        let server = SearchXyzServer::new(
+            crate::search::SearchDispatcher::new(vec![]),
+            crate::crawler::Crawler::new(
+                crate::config::CrawlerConfig::default(),
+                crate::config::HeadlessConfig::default(),
+                crate::config::ProxyConfig::default(),
+                cache.clone(),
+            ),
+            crate::extractor::ExtractionPipeline::new(crate::config::ExtractorConfig::default()),
+            index,
+            cache,
+            graph.clone(),
+            Config::default(),
+        );
+
+        // Verify initial state
+        assert_eq!(server.index.search("programming", 5).unwrap().len(), 2);
+        {
+            let g = server.graph.lock().await;
+            assert_eq!(g.nodes.len(), 4); // doc1, doc2, Rust, Python
+            assert_eq!(g.edges.len(), 2);
+        }
+
+        // Test delete_source for doc1
+        let delete_res = server
+            .delete_source(Parameters(DeleteSourceRequest {
+                url: "https://example.com/doc1".to_string(),
+            }))
+            .await
+            .unwrap();
+        assert!(delete_res.contains("Successfully deleted source"));
+
+        // Verify doc1 is gone, doc2 remains
+        server.index.reload().unwrap();
+        let search_res = server.index.search("programming", 5).unwrap();
+        assert_eq!(search_res.len(), 1);
+        assert_eq!(search_res[0].url, "https://example.com/doc2");
+
+        {
+            let g = server.graph.lock().await;
+            // doc1 node and its edges should be pruned
+            assert!(!g.nodes.contains_key("https://example.com/doc1"));
+            assert!(g.nodes.contains_key("https://example.com/doc2"));
+            // The edge from doc1 to Rust should be gone, only edge from doc2 to Python remains
+            assert_eq!(g.edges.len(), 1);
+            assert_eq!(g.edges[0].source, "https://example.com/doc2");
+        }
+
+        // Test clear_index
+        let clear_res = server
+            .clear_index(Parameters(ClearIndexRequest {}))
+            .await
+            .unwrap();
+        assert!(clear_res.contains("Successfully cleared search index"));
+
+        // Verify index and graph are empty
+        server.index.reload().unwrap();
+        assert_eq!(server.index.search("programming", 5).unwrap().len(), 0);
+        {
+            let g = server.graph.lock().await;
+            assert_eq!(g.nodes.len(), 0);
+            assert_eq!(g.edges.len(), 0);
+        }
+
+        let _ = std::fs::remove_dir_all(&test_dir);
     }
 }

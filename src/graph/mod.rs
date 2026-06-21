@@ -205,6 +205,17 @@ impl KnowledgeGraph {
         }
     }
 
+    pub fn prune_node(&mut self, name: &str) {
+        let canonical_name = self.find_canonical_node_name(name).unwrap_or_else(|| name.to_string());
+        self.nodes.remove(&canonical_name);
+        self.edges.retain(|e| e.source != canonical_name && e.target != canonical_name);
+    }
+
+    pub fn clear(&mut self) {
+        self.nodes.clear();
+        self.edges.clear();
+    }
+
     /// Load the graph from a JSON file.
     pub fn load_from_file(path: &Path) -> Result<Self, std::io::Error> {
         if !path.exists() {
@@ -364,5 +375,16 @@ mod tests {
             .iter()
             .any(|e| e.source == "https://example.com/rust-async" && e.target == "Rust");
         assert!(has_rust_edge);
+    }
+
+    #[test]
+    fn test_graph_pruning() {
+        let mut graph = KnowledgeGraph::new();
+        graph.add_edge("Doc1".to_string(), "Document".to_string(), "Rust".to_string(), "Concept".to_string(), "mentions".to_string());
+        assert_eq!(graph.nodes.len(), 2);
+        
+        graph.prune_node("Doc1");
+        assert_eq!(graph.nodes.len(), 1);
+        assert_eq!(graph.edges.len(), 0);
     }
 }
