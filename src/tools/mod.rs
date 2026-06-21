@@ -85,6 +85,19 @@ pub struct IndexContentRequest {
     pub content: String,
 }
 
+#[derive(Deserialize, JsonSchema)]
+pub struct SiteMapRequest {
+    #[schemars(description = "The root URL or domain to map (e.g. 'https://example.com')")]
+    pub url: String,
+    #[schemars(description = "Try to locate and parse sitemap.xml (default: true)")]
+    pub use_sitemap: Option<bool>,
+    #[schemars(description = "Fallback to spider crawling of internal links (default: true)")]
+    pub crawl_links: Option<bool>,
+    #[schemars(description = "Maximum number of discovered links to return (default: 100, max: 500)")]
+    pub max_links: Option<usize>,
+}
+
+
 // ─────────────────────────────────────────────────────────────
 // MCP Search Server
 // ─────────────────────────────────────────────────────────────
@@ -358,6 +371,71 @@ impl SearchXyzServer {
 
         self.index.add_document(&extracted, "manual").await?;
         Ok(format!("Successfully indexed content for `{}`", req.0.url))
+    }
+
+    #[tool(description = "Map a website's structure by discovering all internal page URLs using sitemap.xml and/or fast recursive link crawling, without extracting page content.")]
+    async fn site_map(&self, req: Parameters<SiteMapRequest>) -> Result<String, rmcp::ErrorData> {
+        let url = &req.0.url;
+        if !url.starts_with("http://") && !url.starts_with("https://") {
+            return Err(rmcp::ErrorData::invalid_params("URL must start with http:// or https://", None));
+        }
+
+        let use_sitemap = req.0.use_sitemap.unwrap_or(true);
+        let crawl_links = req.0.crawl_links.unwrap_or(true);
+        let max_links = req.0.max_links.unwrap_or(100).min(500);
+
+        let mut discovered_urls = std::collections::HashSet::new();
+
+        if use_sitemap {
+            let allowed_host = url::Url::parse(url)
+                .ok()
+                .and_then(|u| u.host_str().map(|h| h.to_string()));
+            match crate::crawler::sitemap::discover_sitemap_urls(&self.crawler, url).await {
+                Ok(urls) => {
+                    for u in urls {
+                        if let Ok(parsed_u) = url::Url::parse(&u) {
+                            if let Some(ref host) = allowed_host {
+                                if parsed_u.host_str() == Some(host) {
+                                    discovered_urls.insert(u);
+                                }
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!(url, error = %e, "Sitemap discovery failed");
+                }
+            }
+        }
+
+        if crawl_links && (discovered_urls.is_empty() || discovered_urls.len() < max_links) {
+            let spider = crate::crawler::fast_spider::LinkSpider::new(self.crawler.clone());
+            match spider.discover_links(url, max_links).await {
+                Ok(urls) => {
+                    for u in urls {
+                        discovered_urls.insert(u);
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!(url, error = %e, "Link spider crawling failed");
+                }
+            }
+        }
+
+        let mut urls: Vec<String> = discovered_urls.into_iter().collect();
+        urls.sort();
+
+        if urls.is_empty() {
+            return Ok(format!("No pages could be discovered for URL: {}", url));
+        }
+
+        let mut output = format!("### Site Map for {}\n\n", url);
+        output.push_str(&format!("Found {} pages:\n", urls.len()));
+        for u in urls {
+            output.push_str(&format!("- {}\n", u));
+        }
+
+        Ok(output)
     }
 }
 

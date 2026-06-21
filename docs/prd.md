@@ -147,6 +147,8 @@ searchxyz solves all five problems in a single, fast, privacy-respecting binary.
 | `index_content` | Index content into the local Tantivy index for later recall. Auto-indexes on `read_url` if enabled. | `url: string` (required), `title: string` (required), `content: string` (required), `metadata: object` (optional) | `{ indexed: bool, id: string, word_count: int }` | P0 |
 | `list_sources` | List all indexed sources with metadata. Supports filtering and pagination. | `domain_filter: string` (optional), `limit: int` (optional, default 50), `offset: int` (optional) | `{ sources: [{ title, url, indexed_at, word_count }], total_count }` | P0 |
 | `deep_research` | Iterative multi-step research pipeline. Searches, reads, identifies gaps, iterates, and synthesizes a final report. | `query: string` (required), `depth: int` (optional, default 3), `breadth: int` (optional, default 5) | `{ query, iterations: int, sources_consulted: int, synthesis_markdown: string, sources: [] }` | P1 |
+| `site_map` | Discover all internal page URLs of a domain using sitemap.xml and/or fast recursive link crawling. | `url: string` (required), `use_sitemap: bool` (optional, default true), `crawl_links: bool` (optional, default true), `max_links: int` (optional, default 100) | Markdown listing of discovered page URLs. | P2 |
+
 
 ---
 

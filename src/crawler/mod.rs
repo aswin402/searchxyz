@@ -1,6 +1,8 @@
 pub mod fingerprint;
 pub mod spider;
 pub mod headless;
+pub mod sitemap;
+pub mod fast_spider;
 
 use headless::HeadlessBrowser;
 use std::num::NonZeroU32;

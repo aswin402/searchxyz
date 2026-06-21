@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.0.11] - 2026-06-21
+
+### Added
+- **Domain Site Mapping (`site_map` tool)**: Implemented an MCP tool to retrieve a domain's pages list without heavy full-page crawls or markdown extraction.
+- **Sitemap XML Parser & robots.txt Discovery**: Added `discover_sitemap_urls` to automatically parse sitemap `<loc>` elements and check robots.txt declarations.
+- **Fast Breadth-First Link Spider**: Implemented BFS recursive link crawler `LinkSpider` to capture domain-scoped internal page URLs.
+- **Mock Cache Integration Tests**: Created unit tests validating BFS crawling and sitemap path fallbacks without network requests.
+
 ## [0.0.10] - 2026-06-21
 
 ### Added

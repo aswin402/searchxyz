@@ -539,7 +539,7 @@
   - Graceful degradation if cache file corrupted
 - [ ] **`list_sources` tool** — list all URLs in the local index with metadata
 - [ ] **`deep_research` tool** — multi-step research with synthesis
-- [ ] **Site mapping** — discover all URLs on a domain (crawl sitemap.xml, follow links)
+- [x] **Site mapping** — discover all URLs on a domain (crawl sitemap.xml, follow links)
 
 ---
 
