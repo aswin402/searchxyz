@@ -7,6 +7,7 @@ mod index;
 mod pipeline;
 mod search;
 mod tools;
+mod graph;
 
 use std::sync::Arc;
 
@@ -123,6 +124,13 @@ async fn main() -> anyhow::Result<()> {
     let extractor = ExtractionPipeline::new(config.extractor.clone());
     let index = SearchIndex::open(&config.index)?;
 
+    // Load Knowledge Graph
+    let graph_path = std::path::Path::new(&config.index.path).join("graph.json");
+    let graph = Arc::new(Mutex::new(graph::KnowledgeGraph::load_from_file(&graph_path).unwrap_or_else(|e| {
+        tracing::warn!(path = ?graph_path, error = %e, "Failed to load knowledge graph, starting fresh");
+        graph::KnowledgeGraph::new()
+    })));
+
     // ── 5. Build MCP server ──
     let server = SearchXyzServer::new(
         dispatcher,
@@ -130,6 +138,7 @@ async fn main() -> anyhow::Result<()> {
         extractor,
         index,
         cache.clone(),
+        graph.clone(),
         config.clone(),
     );
 
@@ -159,6 +168,15 @@ async fn main() -> anyhow::Result<()> {
         tracing::error!(error = %e, "Failed to save cache to disk");
     } else {
         tracing::info!(path = ?config.cache.path, "Cache saved successfully");
+    }
+
+    // Save Knowledge Graph to disk
+    tracing::info!("Saving knowledge graph to disk...");
+    let graph_guard = graph.lock().await;
+    if let Err(e) = graph_guard.save_to_file(&graph_path) {
+        tracing::error!(path = ?graph_path, error = %e, "Failed to save knowledge graph to disk");
+    } else {
+        tracing::info!(path = ?graph_path, "Knowledge graph saved successfully");
     }
 
     tracing::info!("searchxyz server stopped");

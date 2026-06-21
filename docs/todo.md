@@ -552,10 +552,10 @@
   - [x] `fastembed-rs` or `candle` for local embedding generation
   - [x] Store embeddings alongside Tantivy text index
   - [x] Hybrid search: BM25 + cosine similarity
-- [ ] **Knowledge graph:**
-  - Extract entities and relationships from indexed content
-  - Store as directed graph
-  - Query: "What topics are related to X?"
+- [x] **Knowledge graph:**
+  - [x] Extract entities and relationships from indexed content
+  - [x] Store as directed graph
+  - [x] Query: "What topics are related to X?"
 - [ ] **Streamable HTTP transport:**
   - Support remote deployment (not just stdio)
   - SSE-based streaming for long operations

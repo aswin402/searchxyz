@@ -148,6 +148,9 @@ searchxyz solves all five problems in a single, fast, privacy-respecting binary.
 | `list_sources` | List all indexed sources with metadata. Supports filtering and pagination. | `domain_filter: string` (optional), `limit: int` (optional, default 50), `offset: int` (optional) | `{ sources: [{ title, url, indexed_at, word_count }], total_count }` | P0 |
 | `deep_research` | Iterative multi-step research pipeline. Searches, reads, identifies gaps, iterates, and synthesizes a final report. | `query: string` (required), `depth: int` (optional, default 3), `breadth: int` (optional, default 5) | `{ query, iterations: int, sources_consulted: int, synthesis_markdown: string, sources: [] }` | P1 |
 | `site_map` | Discover all internal page URLs of a domain using sitemap.xml and/or fast recursive link crawling. | `url: string` (required), `use_sitemap: bool` (optional, default true), `crawl_links: bool` (optional, default true), `max_links: int` (optional, default 100) | Markdown listing of discovered page URLs. | P2 |
+| `index_relationship` | Store a semantic connection (edge) between two entities in the knowledge graph. | `source: string` (required), `source_type: string` (required), `target: string` (required), `target_type: string` (required), `relationship: string` (required) | Success confirmation message. | P2 |
+| `query_graph` | Query the local knowledge graph to discover entities and relationships connected to a starting concept. | `entity: string` (required), `max_depth: int` (optional, default 2) | Markdown list of connected entities and relationships. | P2 |
+
 
 
 ---

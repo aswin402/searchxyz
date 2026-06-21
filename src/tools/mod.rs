@@ -97,6 +97,29 @@ pub struct SiteMapRequest {
     pub max_links: Option<usize>,
 }
 
+#[derive(Deserialize, JsonSchema)]
+pub struct IndexRelationshipRequest {
+    #[schemars(description = "Source entity name (e.g. 'Tokio')")]
+    pub source: String,
+    #[schemars(description = "Source entity type/label (e.g. 'Library')")]
+    pub source_type: String,
+    #[schemars(description = "Target entity name (e.g. 'Rust')")]
+    pub target: String,
+    #[schemars(description = "Target entity type/label (e.g. 'Language')")]
+    pub target_type: String,
+    #[schemars(description = "Relationship type/verb (e.g. 'written_in', 'depends_on')")]
+    pub relationship: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+pub struct QueryGraphRequest {
+    #[schemars(description = "The entity name to query (e.g. 'Rust')")]
+    pub entity: String,
+    #[schemars(description = "Max traversal depth (default: 2, max: 4)")]
+    pub max_depth: Option<usize>,
+}
+
+
 
 // ─────────────────────────────────────────────────────────────
 // MCP Search Server
@@ -111,6 +134,7 @@ pub struct SearchXyzServer {
     extractor: Arc<ExtractionPipeline>,
     index: Arc<SearchIndex>,
     cache: Arc<Mutex<Cache>>,
+    graph: Arc<Mutex<crate::graph::KnowledgeGraph>>,
     config: Arc<Config>,
 }
 
@@ -122,6 +146,7 @@ impl SearchXyzServer {
         extractor: ExtractionPipeline,
         index: SearchIndex,
         cache: Arc<Mutex<Cache>>,
+        graph: Arc<Mutex<crate::graph::KnowledgeGraph>>,
         config: Config,
     ) -> Self {
         Self {
@@ -131,6 +156,7 @@ impl SearchXyzServer {
             extractor: Arc::new(extractor),
             index: Arc::new(index),
             cache,
+            graph,
             config: Arc::new(config),
         }
     }
@@ -180,6 +206,11 @@ impl SearchXyzServer {
                 if let Err(e) = self.index.add_document(page, "spider").await {
                     tracing::warn!(url = %page.url, error = %e, "Failed to index page from spider (non-fatal)");
                 }
+                // Run automatic graph heuristics
+                {
+                    let mut graph = self.graph.lock().await;
+                    graph.extract_heuristics(&page.url, &page.title, &page.content_markdown);
+                }
             }
 
             let text = crawled_pages
@@ -199,6 +230,12 @@ impl SearchXyzServer {
             // Index the single crawled page too!
             if let Err(e) = self.index.add_document(&content, "read_url").await {
                 tracing::warn!(url = %content.url, error = %e, "Failed to index page from read_url (non-fatal)");
+            }
+
+            // Run automatic graph heuristics
+            {
+                let mut graph = self.graph.lock().await;
+                graph.extract_heuristics(url, &content.title, &content.content_markdown);
             }
 
             let text = format!(
@@ -370,6 +407,13 @@ impl SearchXyzServer {
         };
 
         self.index.add_document(&extracted, "manual").await?;
+
+        // Run automatic graph heuristics
+        {
+            let mut graph = self.graph.lock().await;
+            graph.extract_heuristics(&req.0.url, &req.0.title, &req.0.content);
+        }
+
         Ok(format!("Successfully indexed content for `{}`", req.0.url))
     }
 
@@ -433,6 +477,58 @@ impl SearchXyzServer {
         output.push_str(&format!("Found {} pages:\n", urls.len()));
         for u in urls {
             output.push_str(&format!("- {}\n", u));
+        }
+
+        Ok(output)
+    }
+
+    #[tool(description = "Store a semantic connection (edge) between two entities in the knowledge graph. Helps build custom knowledge associations.")]
+    async fn index_relationship(&self, req: Parameters<IndexRelationshipRequest>) -> Result<String, rmcp::ErrorData> {
+        {
+            let mut graph = self.graph.lock().await;
+            graph.add_edge(
+                req.0.source.clone(),
+                req.0.source_type.clone(),
+                req.0.target.clone(),
+                req.0.target_type.clone(),
+                req.0.relationship.clone(),
+            );
+        }
+
+        Ok(format!(
+            "Successfully indexed relationship: **{}** ({}) -[{}]-> **{}** ({})",
+            req.0.source, req.0.source_type, req.0.relationship, req.0.target, req.0.target_type
+        ))
+    }
+
+    #[tool(description = "Query the local knowledge graph to discover entities and relationships connected to a starting concept, technology, or document.")]
+    async fn query_graph(&self, req: Parameters<QueryGraphRequest>) -> Result<String, rmcp::ErrorData> {
+        let start = &req.0.entity;
+        let depth = req.0.max_depth.unwrap_or(2).min(4);
+
+        let (nodes, edges) = {
+            let graph = self.graph.lock().await;
+            graph.query_neighbors(start, depth)
+        };
+
+        if nodes.is_empty() {
+            return Ok(format!("Entity `{}` not found in the knowledge graph.", start));
+        }
+
+        let mut output = format!("### Knowledge Graph Query for `{}` (Depth: {})\n\n", start, depth);
+
+        output.push_str("#### Entities:\n");
+        for n in &nodes {
+            output.push_str(&format!("- **{}** ({})\n", n.name, n.entity_type));
+        }
+
+        output.push_str("\n#### Connections:\n");
+        if edges.is_empty() {
+            output.push_str("No active connections found.\n");
+        } else {
+            for e in &edges {
+                output.push_str(&format!("- **{}** -[{}]-> **{}**\n", e.source, e.relationship_type, e.target));
+            }
         }
 
         Ok(output)

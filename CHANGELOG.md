@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.0.12] - 2026-06-21
+
+### Added
+- **Directed Knowledge Graph (`index_relationship` & `query_graph` tools)**: Added a zero-dependency directed adjacency list graph mapping semantic links between concepts, technologies, and documents.
+- **Automatic Heuristic Noun & Technology Extractor**: Automatically parses crawled, fetched, or manually indexed document content to find key technical terms and link them to the Document URL.
+- **BFS Graph Traversal**: Implemented case-insensitive graph searching with depth-configurable BFS traversal query capabilities.
+- **JSON File Graph Persistence**: Restores the graph state from `graph.json` in the index directory on startup and saves it back on graceful shutdown.
+- **Graph Unit Tests**: Wrote unit tests covering CRUD updates, BFS query traversing, and keyword heuristic extraction.
+
 ## [0.0.11] - 2026-06-21
 
 ### Added
