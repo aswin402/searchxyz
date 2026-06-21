@@ -13,6 +13,7 @@
     "core": [
       "anyhow",
       "async-trait",
+      "chromiumoxide",
       "chrono",
       "clap",
       "dirs",
@@ -80,6 +81,7 @@
       "src/cache/mod.rs",
       "src/config/mod.rs",
       "src/crawler/fingerprint.rs",
+      "src/crawler/headless.rs",
       "src/crawler/mod.rs",
       "src/crawler/spider.rs",
       "src/error/mod.rs",

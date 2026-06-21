@@ -45,6 +45,7 @@ impl SearchAndReadPipeline {
         &self,
         query: &str,
         max_pages: usize,
+        render_js: bool,
     ) -> Result<Vec<ExtractedContent>, SearchXyzError> {
         // ── Step 1: Search ──
         let search_query = SearchQuery {
@@ -83,7 +84,7 @@ impl SearchAndReadPipeline {
 
             join_set.spawn(async move {
                 // Crawl the page.
-                let fetch_result = crawler.fetch_url(&url).await?;
+                let fetch_result = crawler.fetch_url(&url, render_js).await?;
 
                 // Extract content.
                 let content = extractor.extract(&url, &fetch_result.body)?;

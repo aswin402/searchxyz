@@ -6,7 +6,7 @@
 
 An extremely high-performance Model Context Protocol (MCP) search, crawl, and content-indexing server written in Rust.
 
-**Version:** 0.0.3
+**Version:** 0.0.4
 
 ---
 

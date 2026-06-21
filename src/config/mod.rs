@@ -19,6 +19,7 @@ pub struct Config {
     pub index: IndexConfig,
     pub cache: CacheConfig,
     pub searxng: SearXngConfig,
+    pub headless: HeadlessConfig,
 }
 
 // ── Sub-configs ──────────────────────────────────────────────
@@ -111,6 +112,7 @@ impl Default for Config {
             index: IndexConfig::default(),
             cache: CacheConfig::default(),
             searxng: SearXngConfig::default(),
+            headless: HeadlessConfig::default(),
         }
     }
 }
@@ -265,6 +267,19 @@ impl Config {
                 self.cache.ttl_secs = n;
             }
         }
+        if let Ok(enabled) = std::env::var("SEARCHXYZ_HEADLESS_ENABLED") {
+            if let Ok(b) = enabled.parse() {
+                self.headless.enabled = b;
+            }
+        }
+        if let Ok(path) = std::env::var("SEARCHXYZ_CHROME_PATH") {
+            self.headless.chrome_path = Some(path);
+        }
+        if let Ok(wait_ms) = std::env::var("SEARCHXYZ_HEADLESS_WAIT_MS") {
+            if let Ok(n) = wait_ms.parse() {
+                self.headless.wait_after_load_ms = n;
+            }
+        }
     }
 
     /// Validate invariants.
@@ -308,6 +323,28 @@ impl Default for SearXngConfig {
             instance_url: "http://localhost:8080".into(),
             engines: None,
             timeout_secs: 5,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(default)]
+pub struct HeadlessConfig {
+    pub enabled: bool,
+    pub chrome_path: Option<String>,
+    pub wait_after_load_ms: u64,
+    pub viewport_width: u32,
+    pub viewport_height: u32,
+}
+
+impl Default for HeadlessConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            chrome_path: None,
+            wait_after_load_ms: 1000,
+            viewport_width: 1280,
+            viewport_height: 800,
         }
     }
 }

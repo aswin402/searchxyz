@@ -29,6 +29,8 @@ pub struct ReadUrlRequest {
     pub url: String,
     #[schemars(description = "Crawl depth for recursive scoping. Defaults to 1 (only target URL). Max is 3.")]
     pub depth: Option<usize>,
+    #[schemars(description = "Enable JavaScript rendering with a headless browser for dynamic or JS-heavy websites.")]
+    pub render_js: Option<bool>,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -37,6 +39,8 @@ pub struct SearchAndReadRequest {
     pub query: String,
     #[schemars(description = "How many top results to read (default: 3, max: 5)")]
     pub max_pages: Option<usize>,
+    #[schemars(description = "Enable JavaScript rendering with a headless browser for dynamic or JS-heavy websites.")]
+    pub render_js: Option<bool>,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -128,10 +132,11 @@ impl SearchXyzServer {
         }
 
         let depth = req.0.depth.unwrap_or(1).min(3);
+        let render_js = req.0.render_js.unwrap_or(false);
 
         if depth > 1 {
             let spider = crate::crawler::spider::Spider::new(self.crawler.clone(), self.extractor.clone());
-            let crawled_pages = spider.crawl(url, depth).await?;
+            let crawled_pages = spider.crawl(url, depth, render_js).await?;
             
             // Index successful crawled pages
             for page in &crawled_pages {
@@ -151,7 +156,7 @@ impl SearchXyzServer {
                 .collect::<String>();
             Ok(text)
         } else {
-            let fetch_result = self.crawler.fetch_url(url).await?;
+            let fetch_result = self.crawler.fetch_url(url, render_js).await?;
             let content = self.extractor.extract(url, &fetch_result.body)?;
             
             // Index the single crawled page too!
@@ -170,6 +175,7 @@ impl SearchXyzServer {
     #[tool(description = "Search the web AND read the top results. Returns full page content for each result. Best for research tasks.")]
     async fn search_and_read(&self, req: Parameters<SearchAndReadRequest>) -> Result<String, rmcp::ErrorData> {
         let max = req.0.max_pages.unwrap_or(3).min(5);
+        let render_js = req.0.render_js.unwrap_or(false);
         let pipeline = SearchAndReadPipeline::new(
             self.dispatcher.clone(),
             self.crawler.clone(),
@@ -177,7 +183,7 @@ impl SearchXyzServer {
             self.index.clone(),
         );
 
-        let results = pipeline.run(&req.0.query, max).await?;
+        let results = pipeline.run(&req.0.query, max, render_js).await?;
         let text = results
             .iter()
             .map(|r| {

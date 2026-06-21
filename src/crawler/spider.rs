@@ -22,6 +22,7 @@ impl Spider {
         &self,
         start_url: &str,
         max_depth: usize,
+        render_js: bool,
     ) -> Result<Vec<ExtractedContent>, SearchXyzError> {
         let mut visited = HashSet::new();
         let mut to_visit = vec![start_url.to_string()];
@@ -52,7 +53,7 @@ impl Spider {
                 let extractor = self.extractor.clone();
 
                 join_set.spawn(async move {
-                    let fetch_result = crawler.fetch_url(&url).await?;
+                    let fetch_result = crawler.fetch_url(&url, render_js).await?;
                     let content = extractor.extract(&url, &fetch_result.body)?;
                     Ok::<ExtractedContent, SearchXyzError>(content)
                 });

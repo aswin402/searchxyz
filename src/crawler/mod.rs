@@ -1,6 +1,8 @@
 pub mod fingerprint;
 pub mod spider;
+pub mod headless;
 
+use headless::HeadlessBrowser;
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
@@ -25,6 +27,7 @@ pub struct Crawler {
     config: CrawlerConfig,
     rate_limiter: Arc<DomainRateLimiter>,
     cache: Arc<Mutex<Cache>>,
+    headless_browser: HeadlessBrowser,
 }
 
 /// Raw fetch result before extraction.
@@ -37,7 +40,11 @@ pub struct FetchResult {
 }
 
 impl Crawler {
-    pub fn new(config: CrawlerConfig, cache: Arc<Mutex<Cache>>) -> Self {
+    pub fn new(
+        config: CrawlerConfig,
+        headless_config: crate::config::HeadlessConfig,
+        cache: Arc<Mutex<Cache>>,
+    ) -> Self {
         // Build HTTP client with all safety guards.
         let client = Client::builder()
             .timeout(Duration::from_secs(config.timeout_secs))
@@ -56,12 +63,14 @@ impl Crawler {
                 .unwrap_or(NonZeroU32::new(2).unwrap()),
         );
         let rate_limiter = Arc::new(RateLimiter::keyed(quota));
+        let headless_browser = HeadlessBrowser::new(headless_config);
 
         Self {
             client,
             config,
             rate_limiter,
             cache,
+            headless_browser,
         }
     }
 
@@ -69,6 +78,7 @@ impl Crawler {
     pub async fn fetch_url(
         &self,
         url: &str,
+        render_js: bool,
     ) -> Result<FetchResult, SearchXyzError> {
         // ── 1. Check cache ──
         {
@@ -93,7 +103,29 @@ impl Crawler {
             .until_key_ready(&domain)
             .await;
 
-        // ── 3. Fetch with retries (exponential backoff) ──
+        // ── 3. Headless JS execution if requested ──
+        if render_js {
+            tracing::info!(url, "Fetching URL with headless browser");
+            let body = self.headless_browser.fetch_html(url).await?;
+            
+            // Cache the response
+            {
+                let mut cache = self.cache.lock().await;
+                cache.put(
+                    url.to_string(),
+                    CacheEntry::new(body.clone(), url.to_string()),
+                );
+            }
+
+            return Ok(FetchResult {
+                url: url.to_string(),
+                final_url: url.to_string(),
+                body,
+                content_type: "text/html".into(),
+            });
+        }
+
+        // ── 4. Fetch with retries (exponential backoff) ──
         let mut attempt = 0u32;
         loop {
             attempt += 1;

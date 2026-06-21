@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.0.4] - 2026-06-21
+
+### Added
+- **Headless JS Rendering**: Integrated optional JavaScript rendering using the `chromiumoxide` crate, controlled via the `js-rendering` Cargo feature flag.
+- **Configurable Browser Session**: Added `[headless]` section in configuration parsing (`enabled`, `chrome_path`, `wait_after_load_ms`, `viewport`) and environment overrides.
+- **Tool Schema parameters**: Updated `read_url` and `search_and_read` tools schema to accept `render_js` parameters, allowing AI agents to dynamically request headless browser rendering for client-side dynamic or JS-heavy websites.
+- **Stealth Header injection**: Programmed custom HTTP headers rotation to be applied to the browser's CDP context prior to site navigation to protect against detection.
+
+---
+
 ## [0.0.3] - 2026-06-21
 
 ### Added

@@ -113,7 +113,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let dispatcher = SearchDispatcher::new(backends);
-    let crawler = Crawler::new(config.crawler.clone(), cache.clone());
+    let crawler = Crawler::new(config.crawler.clone(), config.headless.clone(), cache.clone());
     let extractor = ExtractionPipeline::new(config.extractor.clone());
     let index = SearchIndex::open(&config.index)?;
 
