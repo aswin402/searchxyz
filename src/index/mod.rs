@@ -55,7 +55,7 @@ impl SearchIndex {
         // ── Build schema ──
         let mut builder = Schema::builder();
 
-        let f_url = builder.add_text_field("url", TEXT | STORED);
+        let f_url = builder.add_text_field("url", STRING | STORED);
         let f_title = builder.add_text_field("title", TEXT | STORED);
         let f_content = builder.add_text_field("content", TEXT | STORED);
         let f_source = builder.add_text_field("source", TEXT | STORED);
@@ -117,29 +117,30 @@ impl SearchIndex {
     ) -> Result<(), SearchXyzError> {
         let now = tantivy::DateTime::from_timestamp_secs(Utc::now().timestamp());
 
-        // Generate semantic embedding for the document.
-        let text = format!("passage: {}\n\n{}", content.title, content.content_markdown);
-        let text_truncated: String = text.chars().take(4000).collect();
+        let chunks = chunk_content(&content.content_markdown, 1500, 200);
+
+        let texts_to_embed: Vec<String> = if chunks.len() > 1 {
+            chunks
+                .iter()
+                .map(|chunk| {
+                    let text = format!("passage: {}\n\n{}", content.title, chunk);
+                    text.chars().take(4000).collect()
+                })
+                .collect()
+        } else {
+            let text = format!("passage: {}\n\n{}", content.title, content.content_markdown);
+            vec![text.chars().take(4000).collect()]
+        };
 
         let embeddings = {
             let mut model = self.embedding_model.lock().map_err(|e| {
                 SearchXyzError::IndexError(format!("Embedding model mutex poisoned: {e}"))
             })?;
-            model
-                .embed(vec![text_truncated.as_str()], None)
-                .map_err(|e| {
-                    SearchXyzError::IndexError(format!("Failed to generate embedding: {e}"))
-                })?
+            let refs: Vec<&str> = texts_to_embed.iter().map(|s| s.as_str()).collect();
+            model.embed(refs, None).map_err(|e| {
+                SearchXyzError::IndexError(format!("Failed to generate embeddings: {e}"))
+            })?
         };
-        let embedding = embeddings
-            .into_iter()
-            .next()
-            .ok_or_else(|| SearchXyzError::IndexError("No embedding returned".to_string()))?;
-
-        let mut embedding_bytes = Vec::with_capacity(embedding.len() * 4);
-        for val in &embedding {
-            embedding_bytes.extend_from_slice(&val.to_le_bytes());
-        }
 
         let mut writer = self.writer.lock().await;
 
@@ -147,14 +148,52 @@ impl SearchIndex {
         let term = tantivy::Term::from_field_text(self.f_url, &content.url);
         writer.delete_term(term);
 
-        writer.add_document(doc!(
-            self.f_url     => content.url.clone(),
-            self.f_title   => content.title.clone(),
-            self.f_content => content.content_markdown.clone(),
-            self.f_source  => source.to_string(),
-            self.f_indexed_at => now,
-            self.f_embedding => embedding_bytes,
-        ))?;
+        let pattern = format!("{}.*", escape_regex(&format!("{}#", content.url)));
+        let query = tantivy::query::RegexQuery::from_pattern(&pattern, self.f_url)?;
+        writer.delete_query(Box::new(query))?;
+
+        if chunks.len() > 1 {
+            for (idx, (chunk, embedding)) in chunks.into_iter().zip(embeddings).enumerate() {
+                let chunk_url = format!("{}#chunk-{}", content.url, idx);
+                let mut embedding_bytes = Vec::with_capacity(embedding.len() * 4);
+                for val in &embedding {
+                    embedding_bytes.extend_from_slice(&val.to_le_bytes());
+                }
+
+                writer.add_document(doc!(
+                    self.f_url     => chunk_url,
+                    self.f_title   => content.title.clone(),
+                    self.f_content => chunk,
+                    self.f_source  => source.to_string(),
+                    self.f_indexed_at => now,
+                    self.f_embedding => embedding_bytes,
+                ))?;
+            }
+        } else {
+            let chunk_content = if let Some(first) = chunks.into_iter().next() {
+                first
+            } else {
+                content.content_markdown.clone()
+            };
+            let embedding = embeddings
+                .into_iter()
+                .next()
+                .ok_or_else(|| SearchXyzError::IndexError("No embedding returned".to_string()))?;
+
+            let mut embedding_bytes = Vec::with_capacity(embedding.len() * 4);
+            for val in &embedding {
+                embedding_bytes.extend_from_slice(&val.to_le_bytes());
+            }
+
+            writer.add_document(doc!(
+                self.f_url     => content.url.clone(),
+                self.f_title   => content.title.clone(),
+                self.f_content => chunk_content,
+                self.f_source  => source.to_string(),
+                self.f_indexed_at => now,
+                self.f_embedding => embedding_bytes,
+            ))?;
+        }
         writer.commit()?;
 
         tracing::debug!(url = %content.url, "Indexed document");
@@ -508,6 +547,101 @@ impl SearchIndex {
             SearchXyzError::IndexError(format!("Failed to reload index reader: {}", e))
         })
     }
+
+    /// Delete a document by url and any of its associated chunk documents.
+    pub async fn delete_document(&self, url: &str) -> Result<(), SearchXyzError> {
+        let mut writer = self.writer.lock().await;
+        let term = tantivy::Term::from_field_text(self.f_url, url);
+        writer.delete_term(term);
+
+        let pattern = format!("{}.*", escape_regex(&format!("{}#", url)));
+        let query = tantivy::query::RegexQuery::from_pattern(&pattern, self.f_url)?;
+        writer.delete_query(Box::new(query))?;
+        writer.commit()?;
+        Ok(())
+    }
+}
+
+pub fn chunk_content(content: &str, chunk_size: usize, overlap: usize) -> Vec<String> {
+    let mut sections = Vec::new();
+    let mut current_section = String::new();
+    let mut has_headers = false;
+
+    for line in content.lines() {
+        if line.starts_with("# ") || line.starts_with("## ") || line.starts_with("### ") {
+            has_headers = true;
+            if !current_section.trim().is_empty() {
+                sections.push(current_section.trim().to_string());
+            }
+            current_section = line.to_string();
+            current_section.push('\n');
+        } else {
+            current_section.push_str(line);
+            current_section.push('\n');
+        }
+    }
+    if !current_section.trim().is_empty() {
+        sections.push(current_section.trim().to_string());
+    }
+
+    if !has_headers {
+        return sliding_window_chunk(content, chunk_size, overlap);
+    }
+
+    let mut chunks = Vec::new();
+    for section in sections {
+        if section.chars().count() > chunk_size {
+            chunks.extend(sliding_window_chunk(&section, chunk_size, overlap));
+        } else {
+            chunks.push(section);
+        }
+    }
+    chunks
+}
+
+fn sliding_window_chunk(text: &str, chunk_size: usize, overlap: usize) -> Vec<String> {
+    let chars: Vec<char> = text.chars().collect();
+    let mut chunks = Vec::new();
+
+    if chars.is_empty() {
+        return chunks;
+    }
+
+    let mut start = 0;
+    while start < chars.len() {
+        let end = std::cmp::min(start + chunk_size, chars.len());
+        let chunk: String = chars[start..end].iter().collect();
+        let chunk_trimmed = chunk.trim().to_string();
+        if !chunk_trimmed.is_empty() {
+            chunks.push(chunk_trimmed);
+        }
+
+        if end == chars.len() {
+            break;
+        }
+
+        let step = if chunk_size > overlap {
+            chunk_size - overlap
+        } else {
+            1
+        };
+        start += step;
+    }
+    chunks
+}
+
+fn escape_regex(s: &str) -> String {
+    let mut escaped = String::new();
+    for c in s.chars() {
+        match c {
+            '\\' | '.' | '+' | '*' | '?' | '(' | ')' | '|' | '[' | ']' | '{' | '}' | '^' | '$' => {
+                escaped.push('\\');
+                escaped.push(c);
+            }
+            _ => escaped.push(c),
+        }
+    }
+    escaped
 }
 
 #[cfg(test)]
@@ -651,6 +785,52 @@ mod tests {
         let docs_empty = index.export_documents(Some("nonexistent"), 5).unwrap();
         assert_eq!(docs_empty.len(), 0);
 
+        let _ = std::fs::remove_dir_all(&test_dir);
+    }
+
+    #[tokio::test]
+    async fn test_markdown_chunking_logic() {
+        let content =
+            "Paragraph 1\n\n# Header 1\nSection 1 text here.\n\n## Header 2\nSection 2 text here.";
+        let chunks = chunk_content(content, 1500, 200);
+        assert_eq!(chunks.len(), 3);
+        assert!(chunks[0].contains("Paragraph 1"));
+        assert!(chunks[1].contains("# Header 1"));
+        assert!(chunks[2].contains("## Header 2"));
+    }
+
+    #[tokio::test]
+    async fn test_prefix_deletion() {
+        let test_dir = std::env::temp_dir().join(format!(
+            "searchxyz_test_prefix_del_{}",
+            rand::random::<u64>()
+        ));
+        let config = IndexConfig {
+            path: test_dir.clone(),
+            writer_heap_bytes: 15_000_000,
+        };
+        let index = SearchIndex::open(&config).unwrap();
+
+        // Index doc as chunks
+        let doc = ExtractedContent {
+            url: "https://example.com/prefix-del".to_string(),
+            title: "Prefix Del".to_string(),
+            description: "".to_string(),
+            content_markdown: "Doc chunk 1\n\n# Header\nDoc chunk 2".to_string(),
+            links: vec![],
+        };
+        index.add_document(&doc, "test").await.unwrap();
+        index.reload().unwrap();
+
+        // Deleting parent URL must wipe all chunks
+        index
+            .delete_document("https://example.com/prefix-del")
+            .await
+            .unwrap();
+        index.reload().unwrap();
+
+        let results = index.search("Prefix", 10).unwrap();
+        assert_eq!(results.len(), 0);
         let _ = std::fs::remove_dir_all(&test_dir);
     }
 }
