@@ -815,6 +815,11 @@ impl SearchXyzServer {
             }
         }
 
+        // Force reload the index reader so that imported documents are immediately searchable
+        if let Err(e) = self.index.reload() {
+            tracing::warn!(error = %e, "Failed to reload index reader after import (non-fatal)");
+        }
+
         Ok(format!(
             "### Import Summary\n\n\
             - **Documents Imported:** {}\n\
