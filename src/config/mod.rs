@@ -18,6 +18,7 @@ pub struct Config {
     pub extractor: ExtractorConfig,
     pub index: IndexConfig,
     pub cache: CacheConfig,
+    pub searxng: SearXngConfig,
 }
 
 // ── Sub-configs ──────────────────────────────────────────────
@@ -109,6 +110,7 @@ impl Default for Config {
             extractor: ExtractorConfig::default(),
             index: IndexConfig::default(),
             cache: CacheConfig::default(),
+            searxng: SearXngConfig::default(),
         }
     }
 }
@@ -239,6 +241,9 @@ impl Config {
         if let Ok(key) = std::env::var("SEARCHXYZ_BRAVE_API_KEY") {
             self.brave.api_key = Some(key);
         }
+        if let Ok(url) = std::env::var("SEARCHXYZ_SEARXNG_URL") {
+            self.searxng.instance_url = url;
+        }
         if let Ok(level) = std::env::var("SEARCHXYZ_LOG_LEVEL") {
             self.server.log_level = level;
         }
@@ -280,3 +285,25 @@ impl Config {
         Ok(())
     }
 }
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(default)]
+pub struct SearXngConfig {
+    /// Base URL of the SearXNG instance
+    pub instance_url: String,
+    /// List of target search engines to query (comma-separated, e.g. "google,bing")
+    pub engines: Option<String>,
+    /// Search request timeout in seconds
+    pub timeout_secs: u64,
+}
+
+impl Default for SearXngConfig {
+    fn default() -> Self {
+        Self {
+            instance_url: "http://localhost:8080".into(),
+            engines: None,
+            timeout_secs: 5,
+        }
+    }
+}
+

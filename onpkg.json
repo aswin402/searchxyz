@@ -86,6 +86,7 @@
       "src/search/brave.rs",
       "src/search/duckduckgo.rs",
       "src/search/mod.rs",
+      "src/search/searxng.rs",
       "src/tools/mod.rs"
     ]
   }

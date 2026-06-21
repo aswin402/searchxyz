@@ -19,7 +19,7 @@ use config::Config;
 use crawler::Crawler;
 use extractor::ExtractionPipeline;
 use index::SearchIndex;
-use search::{SearchDispatcher, brave::BraveBackend, duckduckgo::DuckDuckGoBackend};
+use search::{SearchDispatcher, brave::BraveBackend, duckduckgo::DuckDuckGoBackend, searxng::SearXngBackend};
 use tools::SearchXyzServer;
 
 use rmcp::{ServiceExt, transport::stdio};
@@ -88,6 +88,12 @@ async fn main() -> anyhow::Result<()> {
                 backends.push(Box::new(BraveBackend::new(
                     http_client.clone(),
                     config.brave.clone(),
+                )));
+            }
+            "searxng" => {
+                backends.push(Box::new(SearXngBackend::new(
+                    http_client.clone(),
+                    config.searxng.clone(),
                 )));
             }
             other => {
