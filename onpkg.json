@@ -99,6 +99,7 @@
       "src/crawler/mod.rs",
       "src/crawler/sitemap.rs",
       "src/crawler/spider.rs",
+      "src/crawler/youtube.rs",
       "src/error/mod.rs",
       "src/extractor/mod.rs",
       "src/graph/mod.rs",

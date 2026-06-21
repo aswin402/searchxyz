@@ -197,6 +197,36 @@ impl SearchXyzServer {
         let depth = req.0.depth.unwrap_or(1).min(3);
         let render_js = req.0.render_js.unwrap_or(false);
 
+        // ── Check for YouTube video URLs ──
+        if crate::crawler::youtube::extract_video_id(url).is_some() {
+            let transcript = crate::crawler::youtube::fetch_youtube_transcript(&self.crawler, url).await?;
+            let title = format!("YouTube Video Transcript - {}", url);
+            let extracted = ExtractedContent {
+                url: url.clone(),
+                title: title.clone(),
+                description: String::new(),
+                content_markdown: transcript.clone(),
+                links: Vec::new(),
+            };
+
+            // Index the transcript
+            if let Err(e) = self.index.add_document(&extracted, "youtube").await {
+                tracing::warn!(url = %url, error = %e, "Failed to index YouTube transcript (non-fatal)");
+            }
+
+            // Run automatic graph heuristics
+            {
+                let mut graph = self.graph.lock().await;
+                graph.extract_heuristics(url, &title, &transcript);
+            }
+
+            let text = format!(
+                "# {}\n\n**Source:** {}\n\n---\n\n{}",
+                title, url, transcript
+            );
+            return Ok(text);
+        }
+
         if depth > 1 {
             let spider = crate::crawler::spider::Spider::new(self.crawler.clone(), self.extractor.clone());
             let crawled_pages = spider.crawl(url, depth, render_js).await?;

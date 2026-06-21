@@ -6,7 +6,7 @@
 
 An extremely high-performance Model Context Protocol (MCP) search, crawl, and content-indexing server written in Rust.
 
-**Version:** 0.0.13
+**Version:** 0.0.14
 
 ---
 
@@ -28,7 +28,7 @@ An extremely high-performance Model Context Protocol (MCP) search, crawl, and co
    - **Description**: Search the web for a query. Returns titles, URLs, and snippets.
    - **Parameters**: `query: String`, `max_results: Option<usize>`
 2. `read_url`
-   - **Description**: Fetch a URL (HTML page or PDF document) and extract its main content as clean markdown/text. Strips boilerplate.
+   - **Description**: Fetch a URL (HTML page, PDF document, or YouTube video link) and extract its main content as clean markdown/text. Automatically parses video closed caption transcripts for YouTube URLs.
    - **Parameters**: `url: String`
 3. `search_and_read`
    - **Description**: Search the web, crawl the top `N` results concurrently, convert to markdown, index them locally, and return the formatted content.

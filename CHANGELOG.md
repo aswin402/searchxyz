@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.0.14] - 2026-06-21
+
+### Added
+- **YouTube Transcript Extraction**: Implemented a parser to detect YouTube video IDs, retrieve closed-captions timedtext JSON metadata, and parse XML captions into clean markdown transcripts.
+- **YouTube Transcript Cache & Indexing**: Integrated YouTube transcript crawler directly into the `read_url` tool, enabling automatic Tantivy search indexing and graph heuristics extraction.
+
 ## [0.0.13] - 2026-06-21
 
 ### Added

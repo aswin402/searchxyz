@@ -559,7 +559,7 @@
 - [x] **Streamable HTTP transport:**
   - [x] Support remote deployment (not just stdio)
   - [x] SSE-based streaming for long operations
-- [ ] **YouTube transcript extraction** — fetch and index video transcripts
+- [x] **YouTube transcript extraction** — fetch and index video transcripts
 - [ ] **GitHub repository reading** — clone, parse, and index codebases
 - [ ] **Multi-agent communication protocol** — agents share research via index
 
