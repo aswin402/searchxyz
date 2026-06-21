@@ -41,6 +41,15 @@ pub struct IndexSearchResult {
     pub score: f32,
 }
 
+/// An entry representing a document's source metadata.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct SourceEntry {
+    pub url: String,
+    pub title: String,
+    pub source: String,
+    pub indexed_at: String,
+}
+
 impl SearchIndex {
     /// Open or create the index at the configured path.
     pub fn open(config: &IndexConfig) -> Result<Self, SearchXyzError> {
@@ -337,6 +346,83 @@ impl SearchIndex {
         Ok(results)
     }
 
+    /// Retrieve metadata of all indexed documents (sources) with optional filtering and pagination.
+    pub fn list_documents(
+        &self,
+        source_filter: Option<&str>,
+        limit: usize,
+        offset: usize,
+    ) -> Result<(Vec<SourceEntry>, usize), SearchXyzError> {
+        let searcher = self.reader.searcher();
+        
+        let query: Box<dyn tantivy::query::Query> = if let Some(src) = source_filter {
+            let term = tantivy::Term::from_field_text(self.f_source, src);
+            Box::new(tantivy::query::TermQuery::new(term, IndexRecordOption::WithFreqs))
+        } else {
+            use tantivy::query::AllQuery;
+            Box::new(AllQuery)
+        };
+
+        let top_docs = searcher
+            .search(&query, &TopDocs::with_limit(10000))
+            .map_err(|e| SearchXyzError::IndexError(format!("Failed to search index: {e}")))?;
+
+        let mut entries = Vec::new();
+        for (_, doc_address) in top_docs {
+            let doc: tantivy::TantivyDocument = searcher
+                .doc(doc_address)
+                .map_err(|e| SearchXyzError::IndexError(format!("Failed to retrieve doc: {e}")))?;
+
+            let url = doc
+                .get_first(self.f_url)
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+
+            let title = doc
+                .get_first(self.f_title)
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+
+            let source = doc
+                .get_first(self.f_source)
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+
+            let date_val = doc.get_first(self.f_indexed_at).and_then(|v| v.as_datetime());
+            let indexed_at = date_val
+                .and_then(|dt: tantivy::DateTime| {
+                    chrono::DateTime::from_timestamp(dt.into_timestamp_secs(), 0)
+                })
+                .map(|dt| dt.to_rfc3339())
+                .unwrap_or_default();
+
+            entries.push((date_val, SourceEntry {
+                url,
+                title,
+                source,
+                indexed_at,
+            }));
+        }
+
+        // Sort by date descending.
+        entries.sort_by(|a, b| b.0.cmp(&a.0));
+
+        let total_count = entries.len();
+
+        // Paginate.
+        let paginated = entries
+            .into_iter()
+            .skip(offset)
+            .take(limit)
+            .map(|(_, item)| item)
+            .collect();
+
+        Ok((paginated, total_count))
+    }
+
     /// Delete all documents matching a URL.
     pub async fn delete_by_url(
         &self,
@@ -403,6 +489,52 @@ mod tests {
         let sem_results_recipe = index.search_semantic("culinary dough recipe", 5).unwrap();
         assert!(!sem_results_recipe.is_empty());
         assert_eq!(sem_results_recipe[0].title, "How to Bake Bread");
+
+        let _ = std::fs::remove_dir_all(&test_dir);
+    }
+
+    #[tokio::test]
+    async fn test_list_documents() {
+        let test_dir = std::env::temp_dir().join(format!("searchxyz_test_list_{}", rand::random::<u64>()));
+        let _ = std::fs::remove_dir_all(&test_dir);
+
+        let config = IndexConfig {
+            path: test_dir.clone(),
+            writer_heap_bytes: 15_000_000,
+        };
+
+        let index = SearchIndex::open(&config).unwrap();
+
+        let doc1 = ExtractedContent {
+            url: "https://example.com/a".to_string(),
+            title: "Doc A".to_string(),
+            description: "".to_string(),
+            content_markdown: "Some content".to_string(),
+            links: vec![],
+        };
+
+        let doc2 = ExtractedContent {
+            url: "https://example.com/b".to_string(),
+            title: "Doc B".to_string(),
+            description: "".to_string(),
+            content_markdown: "Some other content".to_string(),
+            links: vec![],
+        };
+
+        index.add_document(&doc1, "sourcea").await.unwrap();
+        index.add_document(&doc2, "sourceb").await.unwrap();
+
+        index.reader.reload().unwrap();
+
+        // Test listing all
+        let (all_docs, count) = index.list_documents(None, 5, 0).unwrap();
+        assert_eq!(count, 2);
+        assert_eq!(all_docs.len(), 2);
+
+        // Test filtering by source
+        let (filtered_docs, filtered_count) = index.list_documents(Some("sourcea"), 5, 0).unwrap();
+        assert_eq!(filtered_count, 1);
+        assert_eq!(filtered_docs[0].title, "Doc A");
 
         let _ = std::fs::remove_dir_all(&test_dir);
     }

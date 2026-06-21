@@ -54,6 +54,28 @@ pub struct RecallRequest {
 }
 
 #[derive(Deserialize, JsonSchema)]
+pub struct ListSourcesRequest {
+    #[schemars(description = "Filter by indexing source (e.g. 'read_url', 'manual', 'spider')")]
+    pub source: Option<String>,
+    #[schemars(description = "Maximum number of results to return (default: 50, max: 100)")]
+    pub limit: Option<usize>,
+    #[schemars(description = "Offset for pagination (default: 0)")]
+    pub offset: Option<usize>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+pub struct DeepResearchRequest {
+    #[schemars(description = "The research query or topic")]
+    pub query: String,
+    #[schemars(description = "Number of sub-queries to expand and execute (default: 3, max: 5)")]
+    pub breadth: Option<usize>,
+    #[schemars(description = "How many top pages to crawl per sub-query (default: 2, max: 4)")]
+    pub max_pages_per_query: Option<usize>,
+    #[schemars(description = "Enable JavaScript rendering with a headless browser for dynamic or JS-heavy websites.")]
+    pub render_js: Option<bool>,
+}
+
+#[derive(Deserialize, JsonSchema)]
 pub struct IndexContentRequest {
     #[schemars(description = "A URL or identifier for this content")]
     pub url: String,
@@ -227,6 +249,103 @@ impl SearchXyzServer {
         Ok(text)
     }
 
+    #[tool(description = "List all documents and cached pages in the local knowledge base with metadata.")]
+    async fn list_sources(&self, req: Parameters<ListSourcesRequest>) -> Result<String, rmcp::ErrorData> {
+        let source_filter = req.0.source.as_deref();
+        let limit = req.0.limit.unwrap_or(50).min(100);
+        let offset = req.0.offset.unwrap_or(0);
+
+        let (entries, total_count) = self.index.list_documents(source_filter, limit, offset)?;
+
+        if entries.is_empty() {
+            return Ok("No documents found in the local index matching your filters.".to_string());
+        }
+
+        let mut output = format!("### Cached Sources (Total indexed: {})\n\n", total_count);
+        for (i, entry) in entries.iter().enumerate() {
+            output.push_str(&format!(
+                "{}. **{}**\n   - **URL:** {}\n   - **Indexed At:** {}\n   - **Source:** {}\n\n",
+                offset + i + 1,
+                entry.title,
+                entry.url,
+                entry.indexed_at,
+                entry.source
+            ));
+        }
+
+        Ok(output)
+    }
+
+    #[tool(description = "Expand a query into multiple sub-queries, fetch and crawl their results in parallel, index all findings locally, and return a compiled markdown research report.")]
+    async fn deep_research(&self, req: Parameters<DeepResearchRequest>) -> Result<String, rmcp::ErrorData> {
+        let query = &req.0.query;
+        let breadth = req.0.breadth.unwrap_or(3).min(5);
+        let max_pages = req.0.max_pages_per_query.unwrap_or(2).min(4);
+        let render_js = req.0.render_js.unwrap_or(false);
+
+        // 1. Expand query.
+        let expanded_queries = expand_query(query, breadth);
+
+        // 2. Instantiate pipeline.
+        let pipeline = SearchAndReadPipeline::new(
+            self.dispatcher.clone(),
+            self.crawler.clone(),
+            self.extractor.clone(),
+            self.index.clone(),
+        );
+
+        let mut output = format!("# Deep Research Dossier: {}\n\n", query);
+        output.push_str(&format!("*Executed query expansion with breadth {}, crawling up to {} top pages per query.*\n\n", breadth, max_pages));
+
+        // We can execute all pipelines concurrently.
+        use futures::future::join_all;
+        let mut futures = Vec::new();
+        for q in &expanded_queries {
+            futures.push(pipeline.run(q, max_pages, render_js));
+        }
+
+        let results = join_all(futures).await;
+
+        let mut all_pages = std::collections::HashMap::new();
+        let mut executed_count = 0;
+
+        for (i, res) in results.into_iter().enumerate() {
+            let sub_q = &expanded_queries[i];
+            match res {
+                Ok(pages) => {
+                    output.push_str(&format!("## Sub-Query: `{}`\n", sub_q));
+                    if pages.is_empty() {
+                        output.push_str("   *No new pages crawled successfully.*\n\n");
+                    } else {
+                        output.push_str(&format!("   *Successfully retrieved {} pages.*\n\n", pages.len()));
+                        for page in pages {
+                            // Avoid duplicate display by grouping/storing globally in a map.
+                            all_pages.insert(page.url.clone(), page);
+                        }
+                        executed_count += 1;
+                    }
+                }
+                Err(e) => {
+                    output.push_str(&format!("## Sub-Query: `{}`\n", sub_q));
+                    output.push_str(&format!("   *Failed to search/crawl: {}*\n\n", e));
+                }
+            }
+        }
+
+        if all_pages.is_empty() {
+            return Ok(format!("Deep Research failed to retrieve any results for the topic `{}`.", query));
+        }
+
+        output.push_str(&format!("*Summary: Executed {} sub-queries successfully, retrieving a total of {} unique pages.*\n\n", executed_count, all_pages.len()));
+
+        output.push_str("---\n## Compiled Research Documents\n\n");
+        for (url, page) in all_pages {
+            output.push_str(&format!("### {}\n- **Source URL:** {}\n\n{}\n\n", page.title, url, page.content_markdown));
+        }
+
+        Ok(output)
+    }
+
     #[tool(description = "Store text in the local knowledge base for later recall. Useful for saving important research findings.")]
     async fn index_content(&self, req: Parameters<IndexContentRequest>) -> Result<String, rmcp::ErrorData> {
         let extracted = ExtractedContent {
@@ -240,4 +359,27 @@ impl SearchXyzServer {
         self.index.add_document(&extracted, "manual").await?;
         Ok(format!("Successfully indexed content for `{}`", req.0.url))
     }
+}
+
+fn expand_query(query: &str, breadth: usize) -> Vec<String> {
+    let modifiers = vec![
+        "",
+        "documentation libraries",
+        "examples tutorials guide",
+        "comparison review github",
+        "advanced pattern best practices",
+    ];
+
+    let mut expanded = Vec::new();
+    for (i, modif) in modifiers.iter().enumerate() {
+        if i >= breadth {
+            break;
+        }
+        if modif.is_empty() {
+            expanded.push(query.to_string());
+        } else {
+            expanded.push(format!("{} {}", query, modif));
+        }
+    }
+    expanded
 }

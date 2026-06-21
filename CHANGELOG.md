@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.0.10] - 2026-06-21
+
+### Added
+- **Recall Index Source Querying (`list_sources`)**: Implemented a metadata cataloging and pagination utility querying the local Tantivy index by source tags.
+- **Deep Research Pipeline (`deep_research`)**: Integrated a multi-query search expansion pipeline crawling results concurrently and returning aggregated structured markdown dossiers.
+- **Tantivy Integration Tests**: Wrote comprehensive unit tests verifying document source cataloging queries and paging limits.
+
 ## [0.0.9] - 2026-06-21
 
 ### Added
