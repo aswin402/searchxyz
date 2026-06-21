@@ -196,12 +196,28 @@ The project is fully complete through Phase 13 (v2.1). Future extensions on the 
 
 ---
 
-## Building Locally
+## Installation & Updates
 
+We provide two convenience scripts to handle global user installation and codebase updates on Unix-based systems (Linux/macOS):
+
+### Local Installation
+To compile the release binary, install it to `~/.local/bin/searchxyz`, and automatically register it in your Claude Desktop configuration:
 ```bash
-# Build the project
-cargo build --release
+./localinstall.sh
+```
 
-# Run unit tests
+### Quick Updates
+To pull the latest changes from GitHub, re-compile the binary in release mode, and update the global executable:
+```bash
+./localupdate.sh
+```
+
+### Manual Build & Test
+If you prefer to build manually:
+```bash
+# Build release binary
+OPENSSL_VENDORED=1 cargo build --release
+
+# Run the test suite
 OPENSSL_VENDORED=1 cargo test
 ```

@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Database Maintenance Tools (`delete_source` and `clear_index`)**: Exposed two new MCP tools enabling programmatic index pruning (deletes a document and its knowledge graph relationships by URL prefix) and resetting the database entirely.
 - **Custom Embedding Model Integrations**: Extends vector search capabilities to support cloud providers (OpenAI, Gemini, Cohere) alongside local fastembed ONNX models, configuring endpoints and API keys via environment or settings files.
 - **Bearer Token HTTP Authentication Layer**: Integrated authentication middleware into Axum/SSE remote transport, securing exposed MCP endpoints using standard pre-shared bearer token headers (`SEARCHXYZ_AUTH_TOKEN` environment variable).
+- **Helper Scripts for Easy Installation & Updates**: Added `localinstall.sh` to compile and install the MCP binary into `~/.local/bin` and automatically register it in Claude Desktop config. Added `localupdate.sh` to pull the latest remote changes and update the global installation.
 
 ## [0.0.16] - 2026-06-21
 

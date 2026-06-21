@@ -592,6 +592,9 @@
   - [x] Sync changes via `git fetch` + `git reset --hard FETCH_HEAD`
   - [x] Detect modified/added/deleted files using `git diff --name-status`
   - [x] Perform delta updates on Tantivy index and Knowledge Graph
+- [x] **Global Installation & Update Helper Scripts**:
+  - [x] Create `localinstall.sh` for release compilation, global user directory setup (`~/.local/bin`), and automatic Claude Desktop JSON config registration
+  - [x] Create `localupdate.sh` to automatically pull latest Git changes and overwrite the installed binary
 
 ---
 
