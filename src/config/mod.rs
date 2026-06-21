@@ -299,17 +299,17 @@ impl Config {
             self.index.embedding.api_url = Some(url);
         }
         if let Ok(key) = std::env::var("SEARCHXYZ_OPENAI_API_KEY") {
-            if self.index.embedding.provider == "openai" {
+            if self.index.embedding.provider.to_lowercase() == "openai" {
                 self.index.embedding.api_key = Some(key);
             }
         }
         if let Ok(key) = std::env::var("SEARCHXYZ_GEMINI_API_KEY") {
-            if self.index.embedding.provider == "gemini" {
+            if self.index.embedding.provider.to_lowercase() == "gemini" {
                 self.index.embedding.api_key = Some(key);
             }
         }
         if let Ok(key) = std::env::var("SEARCHXYZ_COHERE_API_KEY") {
-            if self.index.embedding.provider == "cohere" {
+            if self.index.embedding.provider.to_lowercase() == "cohere" {
                 self.index.embedding.api_key = Some(key);
             }
         }
