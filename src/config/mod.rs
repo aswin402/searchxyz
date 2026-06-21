@@ -34,6 +34,8 @@ pub struct ServerConfig {
     pub version: String,
     /// Log level filter (e.g. "info", "debug,hyper=warn").
     pub log_level: String,
+    /// Authentication token for remote HTTP server.
+    pub auth_token: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -148,6 +150,7 @@ impl Default for ServerConfig {
             name: "searchxyz".into(),
             version: env!("CARGO_PKG_VERSION").into(),
             log_level: "info".into(),
+            auth_token: None,
         }
     }
 }
@@ -274,6 +277,9 @@ impl Config {
 
     /// Override specific fields from well-known env vars.
     fn apply_env_overrides(&mut self) {
+        if let Ok(key) = std::env::var("SEARCHXYZ_API_KEY") {
+            self.server.auth_token = Some(key);
+        }
         if let Ok(key) = std::env::var("SEARCHXYZ_BRAVE_API_KEY") {
             self.brave.api_key = Some(key);
         }
@@ -498,5 +504,18 @@ mod tests {
         std::env::remove_var("SEARCHXYZ_EMBEDDING_API_KEY");
         std::env::remove_var("SEARCHXYZ_EMBEDDING_URL");
         std::env::remove_var("SEARCHXYZ_OPENAI_API_KEY");
+    }
+
+    #[test]
+    fn test_auth_token_env_override() {
+        std::env::set_var("SEARCHXYZ_API_KEY", "my-secret-token");
+
+        let mut config = Config::default();
+        config.apply_env_overrides();
+
+        assert_eq!(config.server.auth_token, Some("my-secret-token".to_string()));
+
+        // Clean up
+        std::env::remove_var("SEARCHXYZ_API_KEY");
     }
 }

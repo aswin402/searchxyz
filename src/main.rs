@@ -169,7 +169,13 @@ async fn main() -> anyhow::Result<()> {
             Default::default(),
         );
 
-        let app = axum::Router::new().nest_service("/mcp", streamable_service);
+        let mut app = axum::Router::new().nest_service("/mcp", streamable_service);
+        if let Some(ref auth_token) = config.server.auth_token {
+            app = app.layer(axum::middleware::from_fn_with_state(
+                auth_token.clone(),
+                auth_middleware,
+            ));
+        }
 
         let listener = tokio::net::TcpListener::bind(&addr).await?;
         tracing::info!("HTTP server listening on http://{}/mcp", addr);
@@ -218,3 +224,101 @@ async fn main() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+async fn auth_middleware(
+    axum::extract::State(expected_token): axum::extract::State<String>,
+    req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> Result<axum::response::Response, axum::http::StatusCode> {
+    let auth_header = req.headers()
+        .get(axum::http::header::AUTHORIZATION)
+        .and_then(|h| h.to_str().ok());
+    
+    if let Some(auth) = auth_header {
+        if auth.starts_with("Bearer ") && &auth[7..] == expected_token {
+            return Ok(next.run(req).await);
+        }
+    }
+    Err(axum::http::StatusCode::UNAUTHORIZED)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode},
+        routing::get,
+        Router,
+    };
+    use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn test_auth_middleware_blocked() {
+        let app = Router::new()
+            .route("/", get(|| async { "ok" }))
+            .layer(axum::middleware::from_fn_with_state(
+                "secret-token".to_string(),
+                auth_middleware,
+            ));
+
+        // 1. Missing header (should fail/401, but will return 200 in dummy)
+        let response = app
+            .clone()
+            .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+
+        // 2. Mismatched token
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/")
+                    .header("Authorization", "Bearer wrong-token")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+
+        // 3. Bad header format
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/")
+                    .header("Authorization", "Basic secret-token")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_auth_middleware_allowed() {
+        let app = Router::new()
+            .route("/", get(|| async { "ok" }))
+            .layer(axum::middleware::from_fn_with_state(
+                "secret-token".to_string(),
+                auth_middleware,
+            ));
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/")
+                    .header("Authorization", "Bearer secret-token")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+}
+
