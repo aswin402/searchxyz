@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.0.15] - 2026-06-21
+
+### Added
+- **GitHub Repository Ingestion (`read_github_repo` tool)**: Added a codebase cloner and reader tool. Clones repositories using `git clone --depth 1` into a temporary directory, recursively walks files (filtering by allowed code/doc/config extensions and size limits), indexes them in Tantivy, runs graph entity heuristics, and cleans up.
+- **GitHub URL Routing in `read_url`**: Automatically detects GitHub repository URLs passed to `read_url`, bypassing standard HTML scrapers to clone, parse, and index codebases directly.
+
 ## [0.0.14] - 2026-06-21
 
 ### Added

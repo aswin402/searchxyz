@@ -6,7 +6,7 @@
 
 An extremely high-performance Model Context Protocol (MCP) search, crawl, and content-indexing server written in Rust.
 
-**Version:** 0.0.14
+**Version:** 0.0.15
 
 ---
 
@@ -17,6 +17,7 @@ An extremely high-performance Model Context Protocol (MCP) search, crawl, and co
 - **📄 Content Extraction & Boilerplate Reduction**: Crawls target URLs using `reqwest` (with `rustls`), parses them via CSS selectors, strips out noisy elements (nav, footer, styling, ads, iframe), and outputs clean, token-efficient Markdown. Natively supports parsing and extracting text from PDF files (`application/pdf`) as well.
 - **⚡ Concurrent Crawls**: Crawls and extracts up to 5 top result pages concurrently using `tokio` asynchronous workers when executing `search_and_read`.
 - **💾 Local Recall Index & Hybrid Semantic Search**: Integrates a Tantivy full-text index database and local vector embedding generator using `fastembed` (BGESmallENV15, 384-dimension). Supports both hybrid semantic search (cosine similarity ranking) and classic keyword-only search, acting as a smart search-recall memory layer for AI agents.
+- **🐙 GitHub Repository Ingestion**: Clones (using `git clone --depth 1`) and indexes entire codebases/repositories recursively. Automatically walks codebase files, filters by extension/size, strips directory noise, runs graph entity heuristics, and stores content for search recall.
 - **🛡️ Agent-Friendly Error Handling**: Detailed, descriptive typed errors are propagated over JSON-RPC to let the consuming LLM make smart fallback decisions.
 - **🌐 Rotating SOCKS5/HTTP Proxy Support**: Pools multiple proxies and rotates them randomly per request attempt for both standard crawling and headless rendering (using Chromiumoxide). Helps bypass rate-limits and prevent IP bans.
 
@@ -28,7 +29,7 @@ An extremely high-performance Model Context Protocol (MCP) search, crawl, and co
    - **Description**: Search the web for a query. Returns titles, URLs, and snippets.
    - **Parameters**: `query: String`, `max_results: Option<usize>`
 2. `read_url`
-   - **Description**: Fetch a URL (HTML page, PDF document, or YouTube video link) and extract its main content as clean markdown/text. Automatically parses video closed caption transcripts for YouTube URLs.
+   - **Description**: Fetch a URL (HTML page, PDF document, YouTube video, or GitHub repository root) and extract its main content. Automatically extracts closed captions for YouTube links and clones/indexes codebases for GitHub URLs.
    - **Parameters**: `url: String`
 3. `search_and_read`
    - **Description**: Search the web, crawl the top `N` results concurrently, convert to markdown, index them locally, and return the formatted content.
@@ -39,6 +40,9 @@ An extremely high-performance Model Context Protocol (MCP) search, crawl, and co
 5. `index_content`
    - **Description**: Manually index arbitrary text content for later recall by the agent.
    - **Parameters**: `url: String`, `title: String`, `content: String`
+6. `read_github_repo`
+   - **Description**: Clone and recursively index a GitHub repository, parsing its files and README into the search index/knowledge graph and returning a summary.
+   - **Parameters**: `repo_url: String`, `branch: Option<String>`, `include_extensions: Option<Vec<String>>`, `exclude_paths: Option<Vec<String>>`
 
 ---
 

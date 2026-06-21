@@ -119,6 +119,19 @@ pub struct QueryGraphRequest {
     pub max_depth: Option<usize>,
 }
 
+#[derive(Deserialize, JsonSchema)]
+pub struct ReadGithubRepoRequest {
+    #[schemars(description = "The GitHub repository URL (e.g. 'https://github.com/tokio-rs/tokio')")]
+    pub repo_url: String,
+    #[schemars(description = "Optional branch name (e.g. 'master', 'main'). Defaults to the default branch.")]
+    pub branch: Option<String>,
+    #[schemars(description = "Optional list of file extensions to include (e.g. ['rs', 'md']). Defaults to standard code/text extensions.")]
+    pub include_extensions: Option<Vec<String>>,
+    #[schemars(description = "Optional list of folder/file paths to ignore. Defaults to standard ignore folders (target, node_modules, etc.).")]
+    pub exclude_paths: Option<Vec<String>>,
+}
+
+
 
 
 // ─────────────────────────────────────────────────────────────
@@ -225,6 +238,19 @@ impl SearchXyzServer {
                 title, url, transcript
             );
             return Ok(text);
+        }
+
+        // ── Check for GitHub repository URLs ──
+        if crate::crawler::github::parse_github_url(url).is_some() {
+            let summary = crate::crawler::github::clone_and_index_repo(
+                &self.index,
+                &self.graph,
+                url,
+                None,
+                None,
+                None,
+            ).await?;
+            return Ok(summary);
         }
 
         if depth > 1 {
@@ -562,6 +588,21 @@ impl SearchXyzServer {
         }
 
         Ok(output)
+    }
+
+    #[tool(description = "Clone and index a GitHub repository, parsing its files and README into the local knowledge base and returning a markdown summary of the codebase.")]
+    async fn read_github_repo(&self, req: Parameters<ReadGithubRepoRequest>) -> Result<String, rmcp::ErrorData> {
+        let include_exts = req.0.include_extensions.as_deref();
+        let exclude_paths = req.0.exclude_paths.as_deref();
+        let summary = crate::crawler::github::clone_and_index_repo(
+            &self.index,
+            &self.graph,
+            &req.0.repo_url,
+            req.0.branch.as_deref(),
+            include_exts,
+            exclude_paths,
+        ).await?;
+        Ok(summary)
     }
 }
 

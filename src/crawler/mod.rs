@@ -4,6 +4,8 @@ pub mod headless;
 pub mod sitemap;
 pub mod fast_spider;
 pub mod youtube;
+pub mod github;
+
 
 
 use headless::HeadlessBrowser;

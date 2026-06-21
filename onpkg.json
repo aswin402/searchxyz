@@ -95,6 +95,7 @@
       "src/config/mod.rs",
       "src/crawler/fast_spider.rs",
       "src/crawler/fingerprint.rs",
+      "src/crawler/github.rs",
       "src/crawler/headless.rs",
       "src/crawler/mod.rs",
       "src/crawler/sitemap.rs",
