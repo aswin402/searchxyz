@@ -563,6 +563,36 @@
 - [x] **GitHub repository reading** — clone, parse, and index codebases
 - [x] **Multi-agent communication protocol** — agents share research via index
 
+
+---
+
+## Phase 13: v2.1 Features ⏱️ Day 15–18
+
+> **Goal:** Enhance indexing granularity, security, provider support, and database maintenance.
+> **Dependencies:** Phase 12 (v2.0 stable)
+
+- [x] **Markdown-Aware Document Chunking**:
+  - [x] Implement section header-aware splitting logic
+  - [x] Retain prefix context headers for semantic relevance
+  - [x] Implement paragraph sliding window fallback
+- [x] **Database Maintenance Tools**:
+  - [x] Implement index deletion for source URLs/prefixes (`delete_source`)
+  - [x] Prune Knowledge Graph nodes concurrently
+  - [x] Implement full index reset (`clear_index`)
+- [x] **Custom Embedding Models Integration**:
+  - [x] Support OpenAI embedding models
+  - [x] Support Gemini embedding models
+  - [x] Support Cohere embedding models
+  - [x] Fallback to local fastembed ONNX models
+- [x] **SSE Authentication Middleware**:
+  - [x] Secure HTTP/SSE routes with pre-shared Bearer tokens
+  - [x] Read configuration via `SEARCHXYZ_AUTH_TOKEN` case-insensitively
+- [x] **Incremental Git Codebase Ingestion**:
+  - [x] Cache Git clones inside persistent `~/.searchxyz/repos` directory
+  - [x] Sync changes via `git fetch` + `git reset --hard FETCH_HEAD`
+  - [x] Detect modified/added/deleted files using `git diff --name-status`
+  - [x] Perform delta updates on Tantivy index and Knowledge Graph
+
 ---
 
 ## Quality Checklist — Apply Every Phase ✅

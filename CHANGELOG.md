@@ -10,7 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.0.17] - 2026-06-21
 
 ### Added
-- **Incremental Git Codebase Ingestion**: Implemented a persistent cloner in `clone_and_index_repo` that stores clones in `~/.searchxyz/repos/` directories keyed by repository owner, name, and branch. If the repository was previously cloned, it performs `git fetch` and `git reset --hard`, gets the modified/added/deleted files list using `git diff --name-status`, and processes only the changes (removing deleted files from search index and knowledge graph, and updating modified/added files).
+- **Incremental Git Codebase Ingestion**: Implemented a persistent cloner in `clone_and_index_repo` that stores clones in `~/.searchxyz/repos/` directories keyed by repository owner, name, and branch. If the repository was previously cloned, it performs `git fetch` and `git reset --hard FETCH_HEAD`, gets the modified/added/deleted files list using `git diff --name-status`, and processes only the changes (removing deleted files from search index and knowledge graph, and updating modified/added files).
+- **Markdown-Aware Document Chunking**: Implemented robust header-aware chunking for markdown files. Keeps header context prefixes, splits on sections, and falls back to clean sliding window paragraph chunking.
+- **Database Maintenance Tools (`delete_source` and `clear_index`)**: Exposed two new MCP tools enabling programmatic index pruning (deletes a document and its knowledge graph relationships by URL prefix) and resetting the database entirely.
+- **Custom Embedding Model Integrations**: Extends vector search capabilities to support cloud providers (OpenAI, Gemini, Cohere) alongside local fastembed ONNX models, configuring endpoints and API keys via environment or settings files.
+- **Bearer Token HTTP Authentication Layer**: Integrated authentication middleware into Axum/SSE remote transport, securing exposed MCP endpoints using standard pre-shared bearer token headers (`SEARCHXYZ_AUTH_TOKEN` environment variable).
 
 ## [0.0.16] - 2026-06-21
 

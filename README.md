@@ -6,7 +6,7 @@
 
 An extremely high-performance Model Context Protocol (MCP) search, crawl, and content-indexing server written in Rust.
 
-**Version:** 0.0.16
+**Version:** 0.0.17
 
 ---
 
@@ -16,8 +16,11 @@ An extremely high-performance Model Context Protocol (MCP) search, crawl, and co
 - **🔍 Multi-Backend Search Dispatcher**: Out-of-the-box support for DuckDuckGo Lite (completely free, keyless scraping), SearXNG (privacy-centric metasearch aggregator), and optional Brave Web Search API as fallback.
 - **📄 Content Extraction & Boilerplate Reduction**: Crawls target URLs using `reqwest` (with `rustls`), parses them via CSS selectors, strips out noisy elements (nav, footer, styling, ads, iframe), and outputs clean, token-efficient Markdown. Natively supports parsing and extracting text from PDF files (`application/pdf`) as well.
 - **⚡ Concurrent Crawls**: Crawls and extracts up to 5 top result pages concurrently using `tokio` asynchronous workers when executing `search_and_read`.
-- **💾 Local Recall Index & Hybrid Semantic Search**: Integrates a Tantivy full-text index database and local vector embedding generator using `fastembed` (BGESmallENV15, 384-dimension). Supports both hybrid semantic search (cosine similarity ranking) and classic keyword-only search, acting as a smart search-recall memory layer for AI agents.
-- **🐙 GitHub Repository Ingestion**: Clones (using `git clone --depth 1`) and indexes entire codebases/repositories recursively. Automatically walks codebase files, filters by extension/size, strips directory noise, runs graph entity heuristics, and stores content for search recall.
+- **💾 Local Recall Index & Hybrid Semantic Search**: Integrates a Tantivy full-text index database and local/cloud vector embedding generators (supporting local fastembed ONNX or custom OpenAI/Gemini/Cohere providers). Supports hybrid semantic search (cosine similarity ranking) and classic keyword-only search, acting as a smart search-recall memory layer for AI agents.
+- **✂️ Markdown-Aware Document Chunking**: Robust section-header aware document splitting. Maintains title and header paths as prefixes inside chunks to retain semantic context and falls back to clean sliding window splitting for paragraphs.
+- **🐙 Incremental Git Codebase Ingestion**: Persistently clones repositories under `~/.searchxyz/repos/` by owner/repo/branch. Automatically pulls codebases (`git fetch` + `git reset --hard FETCH_HEAD`), computes deltas (`git diff --name-status`), and syncs changes incrementally to Tantivy and the Knowledge Graph.
+- **🔧 Database Maintenance MCP Tools**: Programmatic data pruning and index management tools. Prune selected documents and graph entities by URL prefix (`delete_source`) or reset the index entirely (`clear_index`).
+- **🔐 Bearer Token SSE HTTP Authentication**: Middleware for remote HTTP server SSE transport. Encrypt and secure endpoints behind a pre-shared bearer token (`SEARCHXYZ_AUTH_TOKEN` environment variable).
 - **🛡️ Agent-Friendly Error Handling**: Detailed, descriptive typed errors are propagated over JSON-RPC to let the consuming LLM make smart fallback decisions.
 - **🌐 Rotating SOCKS5/HTTP Proxy Support**: Pools multiple proxies and rotates them randomly per request attempt for both standard crawling and headless rendering (using Chromiumoxide). Helps bypass rate-limits and prevent IP bans.
 
@@ -87,6 +90,12 @@ An extremely high-performance Model Context Protocol (MCP) search, crawl, and co
 8. `import_research`
    - **Description**: Import a research bundle payload into the local index and knowledge graph.
    - **Parameters**: `payload: String`
+9. `delete_source`
+   - **Description**: Delete a specific document and its knowledge graph relationships by its URL/prefix.
+   - **Parameters**: `url: String`
+10. `clear_index`
+   - **Description**: Wipe all documents and knowledge graph connections from the local database.
+   - **Parameters**: (none)
 
 ---
 
@@ -106,6 +115,14 @@ printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion
 ```bash
 # Run HTTP server binding to 127.0.0.1 on port 3000 (endpoints exposed at http://127.0.0.1:3000/mcp)
 ./target/debug/searchxyz --http --host 127.0.0.1 --port 3000
+```
+
+### Bearer Token Authentication
+To secure your remote HTTP/SSE endpoints, you can configure standard bearer token authorization by setting the `SEARCHXYZ_AUTH_TOKEN` environment variable. When set, all incoming MCP HTTP requests must present a matching HTTP `Authorization: Bearer <token>` header:
+
+```bash
+# Start remote server with authentication token
+SEARCHXYZ_AUTH_TOKEN="your-secure-secret-token" ./target/debug/searchxyz --http --host 127.0.0.1 --port 3000
 ```
 
 ---
@@ -168,15 +185,14 @@ urls = [
 - **SEARCHXYZ_CACHE_PATH**: Overrides the persistent cache file location.
 - **SEARCHXYZ_PROXY_ENABLED**: Set to `true` to enable proxy rotation.
 - **SEARCHXYZ_PROXY_URLS**: Comma-separated list of SOCKS5 or HTTP proxy URLs to populate the rotation pool.
+- **SEARCHXYZ_AUTH_TOKEN**: Configures the pre-shared bearer token for remote HTTP server authentication.
 
 ## Roadmap & Future Enhancements
 
-The project is fully complete through Phase 12 (v2.0). Future extensions on the roadmap include:
-1. **Custom Chunking Strategies**: Support markdown-aware paragraph chunking or sliding window splitting for large codebase indexing.
-2. **Database Maintenance Tools**: Add dedicated tools to prune, modify, or delete specific indexed files/URLs and graph nodes directly via MCP.
-3. **Flexible Vector Customization**: Allow configuration of external embedding providers (Gemini, Cohere, OpenAI) or custom local ONNX models.
-4. **Auth & Payload Encryption**: Add Bearer Token security and encrypted transport options for exposed SSE remote server deployments.
-5. **Incremental Git Sync**: Sync codebase indices using incremental `git diff` hashes instead of cloning repositories from scratch.
+The project is fully complete through Phase 13 (v2.1). Future extensions on the roadmap include:
+1. **Visual Knowledge Graph Visualizer**: A browser-accessible interactive UI graph visualizer mapping connections between documents, topics, and code files.
+2. **Web UI Search Dashboard**: A local static website dashboard frontend to query and browse index listings, edit cache items, and manage configuration keys.
+3. **Advanced Retrieval Heuristics**: Re-ranking techniques such as BM25 score adjustment based on Graph connectivity metrics.
 
 ---
 
